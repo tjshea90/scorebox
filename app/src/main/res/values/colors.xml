@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- ScoreBox palette (see assets/index.html header comment for the full set) -->
+    <color name="night">#0C1014</color>
+    <color name="press_box">#161C22</color>
+    <color name="chalk">#E9EEF2</color>
+    <color name="bulb_amber">#FFB424</color>
+</resources>
