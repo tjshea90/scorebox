@@ -40,6 +40,13 @@ android {
         }
     }
 
+    buildFeatures {
+        // AGP 8+ no longer generates BuildConfig by default; MainActivity reads
+        // BuildConfig.VERSION_CODE to tag the app's start URL so the page can show
+        // which build is installed.
+        buildConfig = true
+    }
+
     lint {
         // "ExpiredTargetSdkVersion" is a Google Play listing requirement (targetSdk
         // 31+) that assembleRelease otherwise treats as a fatal lint-vital error.

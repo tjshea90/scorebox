@@ -41,7 +41,12 @@ public class MainActivity extends Activity {
     private static final String TAG = "ScoreBoxRelay";
     private static final String APP_HOST = "appassets.androidplatform.net";
     private static final String API_HOST = "site.api.espn.com";
-    private static final String START_URL = "https://appassets.androidplatform.net/index.html";
+    /* versionCode is the CI run number and lines up 1:1 with each build's release tag
+       (versionCode 12 == release v3.0.12), so passing it through to the page lets the
+       footer show which build is actually installed -- otherwise there's no way to
+       tell from the app itself which fix a given screenshot does or doesn't include. */
+    private static final String START_URL =
+        "https://appassets.androidplatform.net/index.html?v=" + BuildConfig.VERSION_CODE;
     private static final int BG = 0xFF0C1014; // Night Field
     private static final int TIMEOUT_MS = 20000;
     /* Sent on relay requests instead of this device's own WebView.getUserAgentString().
@@ -195,6 +200,17 @@ public class MainActivity extends Activity {
             conn.setReadTimeout(TIMEOUT_MS);
             conn.setRequestProperty("Accept", "application/json, text/plain, */*");
             conn.setRequestProperty("User-Agent", RELAY_USER_AGENT);
+            /* A believable User-Agent alone can look more suspicious than none at all if
+               it isn't backed by the client-hint/fetch-metadata headers a real Chrome
+               sends alongside it -- so these travel together with RELAY_USER_AGENT. */
+            conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+            conn.setRequestProperty("Sec-Fetch-Site", "same-site");
+            conn.setRequestProperty("Sec-Fetch-Mode", "cors");
+            conn.setRequestProperty("Sec-Fetch-Dest", "empty");
+            conn.setRequestProperty("sec-ch-ua",
+                "\"Chromium\";v=\"128\", \"Android WebView\";v=\"128\", \"Not;A=Brand\";v=\"24\"");
+            conn.setRequestProperty("sec-ch-ua-mobile", "?1");
+            conn.setRequestProperty("sec-ch-ua-platform", "\"Android\"");
 
             int code = conn.getResponseCode();
             if (code < 100 || code > 599 || (code >= 300 && code < 400)) {

@@ -267,7 +267,7 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
     <button id="liveBtn"><span class="ldot"></span>Live sync</button>
     <button id="syncBtn">Sync all</button>
   </div>
-  <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span></div>
+  <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span><span id="buildTag"></span></div>
 </header>
 
 <div id="pull"><span class="pdot"></span><span id="pullLabel">Pull to refresh</span></div>
@@ -410,7 +410,7 @@ function fetchJSON(url) {
              real underlying exception (see MainActivity's errorResponse), which
              is otherwise invisible without hooking up adb logcat. */
           return r.text().catch(function () { return ''; }).then(function (body) {
-            throw new Error('HTTP ' + r.status + (body ? ': ' + body.slice(0, 160) : ''));
+            throw new Error('HTTP ' + r.status + (body ? ': ' + body.slice(0, 500) : ''));
           });
         }
         return r.json();
@@ -1165,7 +1165,14 @@ window.addEventListener('offline', render);
   document.addEventListener('touchcancel', function () { dragging = false; if (!refreshing) close(); }, { passive: true });
 })();
 
-/* ---------- boot ---------- */
+/* ---------- boot ----------
+   MainActivity passes its versionCode as ?v=<n> on the start URL (it lines up
+   1:1 with each build's release tag, e.g. v=12 == release v3.0.12) so a
+   screenshot of the app always shows which build produced it. */
+(function () {
+  var m = /[?&]v=(\d+)/.exec(location.search);
+  if (m) $('buildTag').textContent = ' · build ' + m[1];
+})();
 loadPrefs();
 render();
 syncToday(true);
