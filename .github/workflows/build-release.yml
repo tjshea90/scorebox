@@ -3,6 +3,7 @@ name: Build and release APK
 on:
   push:
     branches:
+      - 'main'
       - 'claude/**'
     tags:
       - 'v*'
