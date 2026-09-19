@@ -45,17 +45,6 @@ public class MainActivity extends Activity {
     private static final int BG = 0xFF0C1014; // Night Field
     private static final int TIMEOUT_MS = 20000;
 
-    static {
-        /* Some phone-hotspot connections advertise an IPv6 route that never
-           actually forwards off the phone. java.net's dual-stack connection
-           attempts can stall on that dead route even though IPv4 works fine
-           over the same hotspot (Chromium's own networking code routes
-           around this with Happy Eyeballs; java.net.HttpURLConnection,
-           which the relay below uses, does not). Forcing IPv4-only for the
-           relay's own connections sidesteps that rather than racing it. */
-        System.setProperty("java.net.preferIPv4Stack", "true");
-    }
-
     private WebView web;
     private String userAgent = "";
 

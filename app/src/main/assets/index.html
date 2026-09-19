@@ -405,7 +405,14 @@ function fetchJSON(url) {
     fetch(url, ctl ? { signal: ctl.signal } : undefined)
       .then(function (r) {
         if (to) clearTimeout(to);
-        if (!r.ok) { throw new Error('HTTP ' + r.status); }
+        if (!r.ok) {
+          /* Read the body for diagnostics -- on a relay failure this carries the
+             real underlying exception (see MainActivity's errorResponse), which
+             is otherwise invisible without hooking up adb logcat. */
+          return r.text().catch(function () { return ''; }).then(function (body) {
+            throw new Error('HTTP ' + r.status + (body ? ': ' + body.slice(0, 160) : ''));
+          });
+        }
         return r.json();
       })
       .then(resolve)
@@ -633,10 +640,11 @@ function oneDayOnly(games, ds) {
    A league can span several ESPN feeds; results are merged and
    sorted by start time. Fails only if every feed fails. */
 function fetchLeagueDate(lg, ds) {
+  var lastErr = null;
   var jobs = lg.paths.map(function (p) {
     return fetchJSON(API + p + '/scoreboard?dates=' + ds + (lg.query || ''))
       .then(function (json) { return parseScoreboard(json, lg); })
-      .catch(function () { return null; });
+      .catch(function (e) { lastErr = e; return null; });
   });
   return Promise.all(jobs).then(function (arrs) {
     var out = [], got = false, i, j;
@@ -645,7 +653,7 @@ function fetchLeagueDate(lg, ds) {
       got = true;
       for (j = 0; j < arrs[i].length; j++) { out.push(arrs[i][j]); }
     }
-    if (!got) throw new Error('all feeds failed');
+    if (!got) throw new Error(lastErr ? String(lastErr.message || lastErr) : 'all feeds failed');
     if (lg.football) out = oneDayOnly(out, ds);
     out.sort(function (a, b) { return String(a.start) < String(b.start) ? -1 : 1; });
     return out;
@@ -682,12 +690,15 @@ function runSync(pairs, silent) {
   state.syncing = true;
   state.errors = [];
   if (!silent) render();
-  var fails = {};
+  var fails = {}, firstDetail = null;
   var jobs = pairs.map(function (p) {
     return function () {
       return fetchLeagueDate(p.lg, p.ds)
         .then(function (games) { save(p.lg.key, p.ds, games); })
-        .catch(function () { fails[p.lg.label] = 1; });
+        .catch(function (e) {
+          fails[p.lg.label] = 1;
+          if (!firstDetail) firstDetail = String((e && e.message) || e || '');
+        });
     };
   });
   runJobs(jobs, MAX_PARALLEL).then(function () {
@@ -695,7 +706,11 @@ function runSync(pairs, silent) {
     var names = [], k;
     for (k in fails) { names.push(k); }
     if (names.length && !silent) {
-      state.errors = ['Couldn\u2019t refresh ' + names.join(', ') + ' \u2014 showing cached data where available.'];
+      /* The detail (e.g. "HTTP 502: relay error: UnknownHostException: ...")
+         is shown right in the app so a failure can be diagnosed from the
+         device itself, without needing adb logcat hooked up. */
+      state.errors = ['Couldn\u2019t refresh ' + names.join(', ') + ' \u2014 showing cached data where available.' +
+        (firstDetail ? ' (' + firstDetail + ')' : '')];
     }
     render();
   });
