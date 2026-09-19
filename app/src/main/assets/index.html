@@ -29,9 +29,11 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #ffb424; outlin
 .num { font-family: ui-monospace, "Roboto Mono", "Droid Sans Mono", Menlo, Consolas, monospace;
        font-variant-numeric: tabular-nums; }
 
-/* ---- top bar ---- */
+/* ---- top bar ----
+   header + date strip + league tabs are wrapped in #topbar so the whole
+   cluster stays pinned together while the games list scrolls beneath it. */
+#topbar { position: sticky; top: 0; z-index: 5; background: #0c1014; }
 header {
-  position: sticky; top: 0; z-index: 5;
   background: #10151b;
   border-bottom: 1px solid #26303a;
   padding: 10px 14px 8px;
@@ -92,7 +94,8 @@ body.tracking #liveBtn, body.tracking #syncBtn { display: none; }
 #dateLabel { flex: 1; text-align: center; font-weight: 700; letter-spacing: .02em; }
 
 /* ---- league tabs ---- */
-nav { display: flex; gap: 6px; padding: 10px 14px; }
+nav { display: flex; gap: 6px; padding: 10px 14px; background: #0c1014;
+  border-bottom: 1px solid #26303a; }
 nav button {
   flex: 1; min-height: 44px; border-radius: 8px; padding: 0 2px;
   border: 1px solid #26303a; color: #8b99a6;
@@ -260,6 +263,7 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
 </head>
 <body>
 
+<div id="topbar">
 <header>
   <div class="bar">
     <div class="wordmark">Score<small>Box</small></div>
@@ -285,6 +289,7 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
 </div>
 
 <nav id="tabs"></nav>
+</div>
 <div id="banner"></div>
 <main id="games"></main>
 <footer>Scores via ESPN's public feed. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL covers preseason and regular season; CFB is Division I. F5 = through 5 innings · HT = halftime.</footer>
