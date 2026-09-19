@@ -64,14 +64,19 @@ proxy during development.
 ## Releases
 
 `.github/workflows/build-release.yml` builds and publishes a signed APK
-automatically on every push to a `claude/**` branch and on every `v*` tag:
+automatically on every push to `main` or a `claude/**` branch, and on every
+`v*` tag. Every one of those is its own permanent, version-numbered
+release — nothing gets overwritten:
 
-- An ordinary push publishes to a single rolling **`latest`** release —
-  same tag, same filename, overwritten in place each time — so there's one
-  stable link that always has the newest build:
-  https://github.com/tjshea90/scorebox/releases/tag/latest
+- An ordinary push is tagged `v<versionName>.<CI run number>` (e.g.
+  `v3.0.12`), taking `versionName` straight from `app/build.gradle.kts`.
 - Pushing a `v3.0.1`-style tag (or running the workflow manually with a tag
-  input) cuts its own permanent, numbered release instead.
+  input) uses that tag directly instead of auto-numbering one.
+
+Since every build is a real, non-prerelease release, GitHub's own "Latest"
+badge and the stable `.../releases/latest` link always point at whichever
+one shipped most recently — no custom rolling-tag bookkeeping needed:
+https://github.com/tjshea90/scorebox/releases/latest
 
 Every build is signed with `keystore/scorebox-release.jks`, checked into
 this repo on purpose rather than kept as a CI secret. That's intentional,

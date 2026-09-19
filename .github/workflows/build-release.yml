@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to publish (e.g. v3.0.1). Leave blank for a rolling "latest" build.'
+        description: 'Release tag to publish (e.g. v3.0.1). Leave blank to auto-number from versionName + run number.'
         required: false
         default: ''
 
@@ -63,28 +63,27 @@ jobs:
           REF_TYPE: ${{ github.ref_type }}
           EVENT_NAME: ${{ github.event_name }}
           DISPATCH_TAG: ${{ inputs.tag }}
+          RUN_NUMBER: ${{ github.run_number }}
         run: |
           set -e
           if [ "$EVENT_NAME" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
             tag="${GITHUB_REF#refs/tags/}"
-            name="ScoreBox $tag"
-            prerelease=false
           elif [ -n "$DISPATCH_TAG" ]; then
             tag="$DISPATCH_TAG"
-            name="ScoreBox $tag"
-            prerelease=false
           else
             # Every ordinary branch push (and any manual run with no tag
-            # given) lands here: one rolling "latest" release that gets
-            # overwritten in place, so there's always a single stable
-            # download link with the newest build.
-            tag="latest"
-            name="ScoreBox (latest build)"
-            prerelease=true
+            # given) gets its own permanent, numbered release instead of
+            # overwriting a shared "latest" one -- versionName from
+            # build.gradle.kts plus this run's number, e.g. v3.0.12. That
+            # number always increases, matching the versionCode passed to
+            # the build below, so GitHub's own "Latest" badge and
+            # /releases/latest link keep pointing at the newest release
+            # without any custom rolling-tag bookkeeping.
+            versionName=$(grep -oP 'versionName\s*=\s*"\K[^"]+' app/build.gradle.kts)
+            tag="v${versionName}.${RUN_NUMBER}"
           fi
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
-          echo "name=$name" >> "$GITHUB_OUTPUT"
-          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
+          echo "name=ScoreBox $tag" >> "$GITHUB_OUTPUT"
 
       - name: Build signed release APK
         run: ./gradlew assembleRelease -PappVersionCode=${{ github.run_number }} --no-daemon
@@ -99,7 +98,6 @@ jobs:
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: ${{ steps.tag.outputs.name }}
-          prerelease: ${{ steps.tag.outputs.prerelease }}
           files: out/ScoreBox-${{ steps.tag.outputs.tag }}.apk
           body: |
             Signed build of ScoreBox for sideloading (Settings → allow installs from unknown sources, then open the APK). Every build shares the same signing key, so installing this over an existing ScoreBox install updates it in place -- no need to uninstall first.
