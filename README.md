@@ -36,6 +36,8 @@ app/src/main/
                                              serves assets/ locally
   assets/index.html                         the app itself (HTML/CSS/JS)
   res/                                      launcher icon, theme, app name
+keystore/scorebox-release.jks               release signing key (see Releases)
+.github/workflows/build-release.yml         CI: builds + publishes the APK
 ```
 
 ## Building
@@ -45,7 +47,8 @@ Requires Android Studio (or the command-line SDK) with Android SDK Platform
 will prompt Android Studio to fetch anything missing.
 
 ```
-./gradlew assembleDebug
+./gradlew assembleDebug     # quick local build, debug-signed
+./gradlew assembleRelease   # signed with keystore/scorebox-release.jks (see Releases)
 ```
 
 The app targets `minSdk 21` / `targetSdk 29`, matching the original build.
@@ -57,6 +60,29 @@ in a desktop browser for quick iteration — the only thing that won't work
 outside the app is the ESPN API relay (see below), so scores won't load
 until you either run it in the WebView or point `fetch()` at a CORS-friendly
 proxy during development.
+
+## Releases
+
+`.github/workflows/build-release.yml` builds and publishes a signed APK
+automatically on every push to a `claude/**` branch and on every `v*` tag:
+
+- An ordinary push publishes to a single rolling **`latest`** release —
+  same tag, same filename, overwritten in place each time — so there's one
+  stable link that always has the newest build:
+  https://github.com/tjshea90/scorebox/releases/tag/latest
+- Pushing a `v3.0.1`-style tag (or running the workflow manually with a tag
+  input) cuts its own permanent, numbered release instead.
+
+Every build is signed with `keystore/scorebox-release.jks`, checked into
+this repo on purpose rather than kept as a CI secret. That's intentional,
+not an oversight: ScoreBox has no Play Store listing (sideloaded only) and
+requests no permission beyond `INTERNET`, so the only thing this signature
+buys is a stable identity across builds — installing a newer APK over an
+existing ScoreBox install upgrades it in place instead of requiring an
+uninstall first. `versionCode` is set from the CI run number
+(`-PappVersionCode=<run number>`) so it's always strictly increasing,
+which is what makes that in-place upgrade possible. If ScoreBox ever gets a
+real distribution channel, replace this keystore with a private one first.
 
 ## How it fits together
 
@@ -91,3 +117,26 @@ football) — no extra network calls, and every new field is read
 defensively the way the rest of the parser already treats ESPN's response:
 if a field is ever missing for a given game, that piece just doesn't render
 rather than breaking the card.
+
+## Bug fixes since the initial reconstruction
+
+- **Sync silently refusing to run.** Every sync path was hard-gated on
+  `navigator.onLine`, which is well known to be unreliable in Android
+  WebView specifically over tethered/hotspot connections. Sync now always
+  attempts the fetch and lets its own success/failure decide;
+  `navigator.onLine` is only used for the cosmetic online/offline dot.
+- **Relay failures masquerading as CORS errors.** `MainActivity`'s native
+  relay returned `null` on any failure (DNS, timeout, TLS, ...), which
+  told WebView to re-issue the request itself as a real cross-origin
+  fetch — one ESPN doesn't send CORS headers for, so it was doomed
+  regardless of whether it actually reached ESPN, and hid the real error
+  behind a generic network failure. The relay now always returns its own
+  CORS-enabled response, including a real error on failure.
+- **IPv6 on tethered hotspots.** Phone hotspots commonly advertise an IPv6
+  route that doesn't actually forward off the phone; `java.net`'s
+  dual-stack connection logic can stall on that dead route even though
+  IPv4 works fine over the same hotspot. The relay now forces IPv4.
+- **Missing football icon mid-drive.** `parseFootballSituation` discarded
+  possession info whenever ESPN's feed had no down/distance text, which
+  it commonly omits between snaps (kickoffs, extra points, replay
+  review). The 🏈 now renders off possession alone.

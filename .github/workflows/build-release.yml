@@ -85,13 +85,13 @@ jobs:
           echo "name=$name" >> "$GITHUB_OUTPUT"
           echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
-      - name: Build debug APK
-        run: ./gradlew assembleDebug --no-daemon
+      - name: Build signed release APK
+        run: ./gradlew assembleRelease -PappVersionCode=${{ github.run_number }} --no-daemon
 
       - name: Rename APK
         run: |
           mkdir -p out
-          cp app/build/outputs/apk/debug/app-debug.apk "out/ScoreBox-${{ steps.tag.outputs.tag }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "out/ScoreBox-${{ steps.tag.outputs.tag }}.apk"
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
@@ -101,6 +101,6 @@ jobs:
           prerelease: ${{ steps.tag.outputs.prerelease }}
           files: out/ScoreBox-${{ steps.tag.outputs.tag }}.apk
           body: |
-            Debug-signed build of ScoreBox for sideloading (Settings → allow installs from unknown sources, then open the APK).
+            Signed build of ScoreBox for sideloading (Settings → allow installs from unknown sources, then open the APK). Every build shares the same signing key, so installing this over an existing ScoreBox install updates it in place -- no need to uninstall first.
 
-            Built automatically from `${{ github.sha }}` on `${{ github.ref_name }}`.
+            Built automatically from `${{ github.sha }}` on `${{ github.ref_name }}` (versionCode ${{ github.run_number }}).
