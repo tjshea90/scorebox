@@ -44,9 +44,21 @@ public class MainActivity extends Activity {
     private static final String START_URL = "https://appassets.androidplatform.net/index.html";
     private static final int BG = 0xFF0C1014; // Night Field
     private static final int TIMEOUT_MS = 20000;
+    /* Sent on relay requests instead of this device's own WebView.getUserAgentString().
+       On a tablet whose system WebView is frozen years out of date (common once a
+       32-bit-only device stops getting WebView updates from Play Store), that string
+       advertises a long-deprecated Chrome build -- which ESPN's edge/bot protection
+       can and does reject outright ("Access Denied") even though the request is
+       otherwise completely normal. A real browser on the same device/network isn't
+       affected because it's a separately-updated app, not tied to system WebView.
+       Spoofing a current UA here only affects this native relay call, not how the
+       page itself renders. Will need bumping again someday as this string ages too,
+       just far more slowly than a WebView that can't update at all. */
+    private static final String RELAY_USER_AGENT =
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) "
+        + "Chrome/128.0.0.0 Mobile Safari/537.36";
 
     private WebView web;
-    private String userAgent = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -71,7 +83,6 @@ public class MainActivity extends Activity {
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-        userAgent = settings.getUserAgentString();
 
         web.setWebViewClient(new LocalClient());
         web.setWebChromeClient(new WebChromeClient());
@@ -183,9 +194,7 @@ public class MainActivity extends Activity {
             conn.setConnectTimeout(TIMEOUT_MS);
             conn.setReadTimeout(TIMEOUT_MS);
             conn.setRequestProperty("Accept", "application/json, text/plain, */*");
-            if (userAgent != null && userAgent.length() > 0) {
-                conn.setRequestProperty("User-Agent", userAgent);
-            }
+            conn.setRequestProperty("User-Agent", RELAY_USER_AGENT);
 
             int code = conn.getResponseCode();
             if (code < 100 || code > 599 || (code >= 300 && code < 400)) {
