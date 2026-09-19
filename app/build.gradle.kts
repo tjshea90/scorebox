@@ -40,6 +40,14 @@ android {
         }
     }
 
+    lint {
+        // "ExpiredTargetSdkVersion" is a Google Play listing requirement (targetSdk
+        // 31+) that assembleRelease otherwise treats as a fatal lint-vital error.
+        // ScoreBox has no Play listing and deliberately keeps targetSdk 29 to match
+        // the original recovered build (see README), so this check doesn't apply.
+        disable += "ExpiredTargetSdkVersion"
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_1_8
         targetCompatibility = JavaVersion.VERSION_1_8
