@@ -2,17 +2,23 @@ name: Build and release APK
 
 on:
   push:
+    branches:
+      - 'claude/**'
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag to publish (e.g. v3.0.1)'
-        required: true
-        default: 'v3.0.0'
+        description: 'Release tag to publish (e.g. v3.0.1). Leave blank for a rolling "latest" build.'
+        required: false
+        default: ''
 
 permissions:
   contents: write
+
+concurrency:
+  group: build-release-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -52,12 +58,32 @@ jobs:
 
       - name: Resolve release tag
         id: tag
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ inputs.tag }}
         run: |
-          if [ "${{ github.event_name }}" = "push" ]; then
-            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          set -e
+          if [ "$EVENT_NAME" = "push" ] && [ "$REF_TYPE" = "tag" ]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            name="ScoreBox $tag"
+            prerelease=false
+          elif [ -n "$DISPATCH_TAG" ]; then
+            tag="$DISPATCH_TAG"
+            name="ScoreBox $tag"
+            prerelease=false
           else
-            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            # Every ordinary branch push (and any manual run with no tag
+            # given) lands here: one rolling "latest" release that gets
+            # overwritten in place, so there's always a single stable
+            # download link with the newest build.
+            tag="latest"
+            name="ScoreBox (latest build)"
+            prerelease=true
           fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$prerelease" >> "$GITHUB_OUTPUT"
 
       - name: Build debug APK
         run: ./gradlew assembleDebug --no-daemon
@@ -71,9 +97,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: ScoreBox ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.name }}
+          prerelease: ${{ steps.tag.outputs.prerelease }}
           files: out/ScoreBox-${{ steps.tag.outputs.tag }}.apk
           body: |
             Debug-signed build of ScoreBox for sideloading (Settings → allow installs from unknown sources, then open the APK).
 
-            Built automatically from `${{ github.sha }}`.
+            Built automatically from `${{ github.sha }}` on `${{ github.ref_name }}`.
