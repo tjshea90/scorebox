@@ -465,7 +465,6 @@ function parseFootballSituation(sit, home, away) {
     (sit.shortDownDistanceText && sit.possessionText
       ? sit.shortDownDistanceText + ' at ' + sit.possessionText
       : (sit.shortDownDistanceText || sit.possessionText || null));
-  if (!text) return null;
   var possess = null;
   if (sit.possession != null) {
     var pid = String(sit.possession);
@@ -473,6 +472,11 @@ function parseFootballSituation(sit, home, away) {
     if (idsOf(home).indexOf(pid) !== -1) possess = 'home';
     else if (idsOf(away).indexOf(pid) !== -1) possess = 'away';
   }
+  /* Between snaps (kickoffs, extra points, replay review) ESPN often
+     clears the down/distance text but still reports who has the ball —
+     keep the icon showing on possession alone instead of hiding it
+     until the next snap. */
+  if (!text && !possess) return null;
   return { text: text, possess: possess, redzone: sit.isRedZone === true };
 }
 /* soccer halftime: half-by-half linescores when ESPN provides them,
@@ -668,10 +672,10 @@ function runJobs(jobs, limit) {
 }
 function runSync(pairs, silent) {
   if (state.syncing || !pairs.length) return;
-  if (!navigator.onLine) {
-    if (!silent) { state.errors = ['You\u2019re offline \u2014 showing cached scores.']; render(); }
-    return;
-  }
+  /* Deliberately not gated on navigator.onLine: Android WebView's onLine
+     flag is unreliable over tethered/hotspot connections (it reflects
+     Android's network-validation state, not real connectivity), so we
+     always attempt the fetch and let its own success/failure decide. */
   state.syncing = true;
   state.errors = [];
   if (!silent) render();
@@ -767,7 +771,7 @@ function setLive(on) {
   if (state.timer) { clearInterval(state.timer); state.timer = null; }
   if (on) {
     state.timer = setInterval(function () {
-      if (state.track || document.hidden || !navigator.onLine || state.syncing) return;
+      if (state.track || document.hidden || state.syncing) return;
       syncToday(true, true);
     }, LIVE_MS);
     if (!state.track) syncToday(true);
@@ -777,7 +781,7 @@ function setLive(on) {
 
 /* ---------- track live: one game, its feed only, every 5s ---------- */
 function trackTick() {
-  if (!state.track || document.hidden || !navigator.onLine || state.syncing) return;
+  if (!state.track || document.hidden || state.syncing) return;
   var dates = {}, i;
   for (i = 0; i < LEAGUES.length; i++) {
     dates[LEAGUES[i].key] = LEAGUES[i].key === state.track.lgKey ? [state.track.ds] : [];
@@ -815,7 +819,7 @@ function rowHTML(team, g, f5val, fbSit) {
   else scoreTxt = team.score !== '' ? team.score : (g.state === 'in' ? '0' : '\u2013');
   var f5cell = f5val != null ? '<div class="f5col num">' + esc(f5val) + '</div>' : '';
   var ball = fbSit ? '<span class="fbicon" role="img" aria-label="Has the ball">\ud83c\udfc8</span>' : '';
-  var fbLine = fbSit ? '<div class="fb' + (fbSit.redzone ? ' rz' : '') + '">' + esc(fbSit.text) + '</div>' : '';
+  var fbLine = fbSit && fbSit.text ? '<div class="fb' + (fbSit.redzone ? ' rz' : '') + '">' + esc(fbSit.text) + '</div>' : '';
   return '<div class="trow' + (loser ? ' loser' : '') + '">' +
     tileHTML(team) +
     '<div class="tname"><div class="n">' + ball + esc(team.name) + '</div>' +
@@ -1146,7 +1150,7 @@ window.addEventListener('offline', render);
 /* ---------- boot ---------- */
 loadPrefs();
 render();
-if (navigator.onLine) syncToday(true);
+syncToday(true);
 })();
 </script>
 </body>
