@@ -393,12 +393,15 @@ function textOn(hex) {
   return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#10151b' : '#f4f8fb';
 }
 
-/* ---------- fetch with 12s timeout ---------- */
+/* ---------- fetch with 20s timeout ----------
+   Matches MainActivity's native relay timeout (TIMEOUT_MS) -- this one must
+   stay >= that one, or the page aborts the request before the relay's own
+   longer budget ever gets a chance to finish it. */
 function fetchJSON(url) {
   return new Promise(function (resolve, reject) {
     var ctl = null, to = null;
     try { ctl = new AbortController(); } catch (e) {}
-    if (ctl) to = setTimeout(function () { ctl.abort(); }, 12000);
+    if (ctl) to = setTimeout(function () { ctl.abort(); }, 20000);
     fetch(url, ctl ? { signal: ctl.signal } : undefined)
       .then(function (r) {
         if (to) clearTimeout(to);

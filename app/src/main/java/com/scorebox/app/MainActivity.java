@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebChromeClient;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -36,11 +38,23 @@ import java.util.Map;
  */
 public class MainActivity extends Activity {
 
+    private static final String TAG = "ScoreBoxRelay";
     private static final String APP_HOST = "appassets.androidplatform.net";
     private static final String API_HOST = "site.api.espn.com";
     private static final String START_URL = "https://appassets.androidplatform.net/index.html";
     private static final int BG = 0xFF0C1014; // Night Field
-    private static final int TIMEOUT_MS = 12000;
+    private static final int TIMEOUT_MS = 20000;
+
+    static {
+        /* Some phone-hotspot connections advertise an IPv6 route that never
+           actually forwards off the phone. java.net's dual-stack connection
+           attempts can stall on that dead route even though IPv4 works fine
+           over the same hotspot (Chromium's own networking code routes
+           around this with Happy Eyeballs; java.net.HttpURLConnection,
+           which the relay below uses, does not). Forcing IPv4-only for the
+           relay's own connections sidesteps that rather than racing it. */
+        System.setProperty("java.net.preferIPv4Stack", "true");
+    }
 
     private WebView web;
     private String userAgent = "";
@@ -156,6 +170,20 @@ public class MainActivity extends Activity {
                 new HashMap<String, String>(), new ByteArrayInputStream(new byte[0]));
     }
 
+    /** A same-origin (CORS-enabled) error response, so a relay failure surfaces to the
+     *  page's fetch() as a normal non-ok response instead of falling through to a real
+     *  cross-origin request that WebView would then block on CORS anyway — that fallback
+     *  both wastes a whole extra timeout window and throws away the real failure reason. */
+    private WebResourceResponse errorResponse(int code, String message, String detail) {
+        Log.w(TAG, "relay: " + code + " " + message + " - " + detail);
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Access-Control-Allow-Origin", "*");
+        headers.put("Cache-Control", "no-cache");
+        byte[] body = ("relay error: " + detail).getBytes(StandardCharsets.UTF_8);
+        return new WebResourceResponse("text/plain", "utf-8", code, message, headers,
+                new ByteArrayInputStream(body));
+    }
+
     /** GETs an ESPN API URL server-side and hands the response back to the page, CORS-free. */
     private WebResourceResponse relay(String urlString) {
         HttpURLConnection conn = null;
@@ -172,8 +200,9 @@ public class MainActivity extends Activity {
 
             int code = conn.getResponseCode();
             if (code < 100 || code > 599 || (code >= 300 && code < 400)) {
+                String detail = "unexpected upstream status " + code;
                 conn.disconnect();
-                return null;
+                return errorResponse(502, "Bad Gateway", detail);
             }
 
             String message = conn.getResponseMessage();
@@ -213,7 +242,8 @@ public class MainActivity extends Activity {
             if (conn != null) {
                 try { conn.disconnect(); } catch (Exception ignored) {}
             }
-            return null;
+            String detail = e.getClass().getSimpleName() + ": " + String.valueOf(e.getMessage());
+            return errorResponse(502, "Bad Gateway", detail);
         }
     }
 
