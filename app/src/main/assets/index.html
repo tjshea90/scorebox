@@ -256,9 +256,44 @@ details[open] summary::after { content: " ▴"; }
 .empty { text-align: center; color: #8b99a6; padding: 48px 20px 20px; }
 .empty .big { font-size: 15px; color: #e9eef2; margin-bottom: 6px; font-weight: 700; }
 footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30px; }
+
+/* ---- old-WebView fallback: flexbox `gap` only exists in Chrome 84+.
+       Android 10 tablets often ship an older System WebView that
+       silently ignores it, so everything butts together (tile against
+       team name, score against the F5 line, tabs touching). The script
+       at the top of <body> tags <html class="nogap"> when gap is
+       unsupported and these margins stand in for it. ---- */
+.nogap .bar > * + *,
+.nogap .datebar > * + * { margin-left: 8px; }
+.nogap .meta > * + * { margin-left: 6px; }
+.nogap #trackbar > * + * { margin-left: 10px; }
+.nogap nav > * + * { margin-left: 6px; }
+.nogap #pull > * + * { margin-left: 8px; }
+.nogap .card .top > * + * { margin-left: 10px; }
+.nogap .trow > * + *,
+.nogap .f5head > * + *,
+.nogap .mid > * + * { margin-left: 10px; }
+/* wrapping rows: trailing margins so wrapped lines stay flush left */
+.nogap .statleft > * { margin-right: 8px; }
+.nogap .atbat > * { margin-right: 14px; }
 </style>
 </head>
 <body>
+<script>
+/* feature-test flexbox gap before first paint (see .nogap styles) */
+(function () {
+  try {
+    var d = document.createElement('div');
+    d.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+    d.appendChild(document.createElement('div'));
+    d.appendChild(document.createElement('div'));
+    document.body.appendChild(d);
+    var ok = d.scrollHeight === 1;
+    document.body.removeChild(d);
+    if (!ok) document.documentElement.className += ' nogap';
+  } catch (e) {}
+})();
+</script>
 
 <header>
   <div class="bar">
