@@ -63,10 +63,14 @@ proxy during development.
 
 ## Releases
 
+`main` is the one and only app branch: every release is built from it, so
+each release contains everything in the one before it. Work can happen on a
+side branch, but it ships by being merged into `main`.
+
 `.github/workflows/build-release.yml` builds and publishes a signed APK
-automatically on every push to `main` or a `claude/**` branch, and on every
-`v*` tag. Every one of those is its own permanent, version-numbered
-release — nothing gets overwritten:
+automatically on every push to `main`, and on every `v*` tag (a manual run
+works too, but only on `main`). Every one of those is its own permanent,
+version-numbered release — nothing gets overwritten:
 
 - An ordinary push is tagged `v<versionName>.<CI run number>` (e.g.
   `v3.0.12`), taking `versionName` straight from `app/build.gradle.kts`.
@@ -131,11 +135,13 @@ vice versa: possession alone still shows the 🏈). ESPN
 typically sends no down during kickoffs and extra points, between quarters
 and at halftime, so the line is simply absent at those moments.
 
-3. **CFB is final results only:** no halftime column, halftime summary or
+3. **Sticky top bar.** The header, date strip and league tabs stay pinned
+   to the top while the games list scrolls underneath.
+4. **CFB is final results only:** no halftime column, halftime summary or
    halftime divider in the line score — just the live score while it's on
    and the Final result once it's over. (NFL, WNBA and MLB keep their
    halftime / First 5 splits.)
-4. **NHL tab** (`hockey/nhl`), final scores only: the score, a Final
+5. **NHL tab** (`hockey/nhl`), final scores only: the score, a Final
    summary (winner, margin in goals, combined total) and ESPN's
    `Final/OT` / `Final/SO` status — no period-by-period line score or
    intermediate splits.

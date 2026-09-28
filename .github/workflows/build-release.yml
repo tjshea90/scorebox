@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - 'main'
-      - 'claude/**'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -23,6 +22,9 @@ concurrency:
 
 jobs:
   build:
+    # Releases come from main only, so every release builds on the one before
+    # it. A manual run started on any other branch is skipped.
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -97,6 +99,9 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
+          # tag the commit that was actually built (otherwise GitHub tags the
+          # repo's default branch, which isn't necessarily what shipped)
+          target_commitish: ${{ github.sha }}
           name: ${{ steps.tag.outputs.name }}
           files: out/ScoreBox-${{ steps.tag.outputs.tag }}.apk
           body: |
