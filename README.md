@@ -1,6 +1,6 @@
 # ScoreBox
 
-A pocket scoreboard for MLB, WNBA, NFL and CFB. Scores come straight from
+A pocket scoreboard for MLB, WNBA, NFL, CFB and NHL. Scores come straight from
 ESPN's public scoreboard feed — no accounts, no ads, no backend of your own
 to run.
 
@@ -71,15 +71,17 @@ proxy during development.
 
 ## What changed since the recovered version
 
-Everything else was left exactly as it shipped. Two additions:
+Everything else was left exactly as it shipped. Additions:
 
 1. **Pull to refresh.** Drag down from the top of the list to trigger the
    same refresh "Sync all" does (or, while tracking a single game, the same
    immediate re-check its 5s timer already does).
 2. **Richer live detail:**
    - **Football (NFL/CFB):** a 🏈 next to whichever team currently has the
-     ball, with the down, distance and field position right under their
-     name — e.g. "2nd & 7 at GB 32".
+     ball, plus a full-width line under the game status with the ball
+     carrier, down & distance and ball spot spaced out — e.g.
+     "🏈 GB · DOWN 2nd & 7 · BALL ON CHI 32". It sits on its own line (and
+     wraps rather than clipping) so the team/score columns can't cut it off.
    - **Baseball (MLB):** the live at-bat — current batter, current pitcher,
      and that pitcher's pitch count for the outing, shown under the status
      line alongside the existing bases/count/outs display.
@@ -90,4 +92,18 @@ Both pull from fields ESPN's scoreboard feed already returns per game
 football) — no extra network calls, and every new field is read
 defensively the way the rest of the parser already treats ESPN's response:
 if a field is ever missing for a given game, that piece just doesn't render
-rather than breaking the card.
+rather than breaking the card. For football, each piece falls back through
+every form ESPN uses (`shortDownDistanceText`/`possessionText`, the combined
+`downDistanceText`, then the bare `down`/`distance` numbers), and a missing
+`possession` id only drops the 🏈 — the down & distance still show. ESPN
+typically sends no down during kickoffs and extra points, between quarters
+and at halftime, so the line is simply absent at those moments.
+
+3. **CFB is final results only:** no halftime column, halftime summary or
+   halftime divider in the line score — just the live score while it's on
+   and the Final result once it's over. (NFL, WNBA and MLB keep their
+   halftime / First 5 splits.)
+4. **NHL tab** (`hockey/nhl`), final scores only: the score, a Final
+   summary (winner, margin in goals, combined total) and ESPN's
+   `Final/OT` / `Final/SO` status — no period-by-period line score or
+   intermediate splits.

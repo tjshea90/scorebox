@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0c1014">
 <meta name="mobile-web-app-capable" content="yes">
-<title>ScoreBox — MLB · WNBA · NFL · CFB</title>
+<title>ScoreBox — MLB · WNBA · NFL · CFB · NHL</title>
 <style>
 /* ================================================================
    ScoreBox v3 — offline-first pocket scoreboard
@@ -179,11 +179,15 @@ main { padding: 6px 14px 40px; max-width: 720px; margin: 0 auto; }
 .ab-lbl { color: #ffb424; font-weight: 800; font-size: 10px; letter-spacing: .08em;
   text-transform: uppercase; margin-right: 5px; }
 
-/* ---- live football possession: icon + down & distance beside the ball carrier ---- */
+/* ---- live football: 🏈 beside the ball carrier's name, plus a full-width
+       line for possession, down & distance and ball spot — its own line so
+       the team column can never squeeze it out; chunks wrap, never clip ---- */
 .fbicon { margin-right: 4px; font-size: 12px; vertical-align: -1px; }
-.tname .fb { font-size: 11px; font-weight: 700; color: #ffb424; margin-top: 1px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.tname .fb.rz { color: #ff7a72; }
+.fbsit { display: flex; flex-wrap: wrap; gap: 4px 18px; margin: -2px 0 8px;
+  font-size: 13px; font-weight: 700; color: #e9eef2; }
+.fbsit > span { white-space: nowrap; }
+.fbsit.rz { color: #ff7a72; }
+.card.track .fbsit { font-size: 15px; }
 
 .trow { display: flex; align-items: center; gap: 10px; padding: 4px 0; }
 .tile {
@@ -287,7 +291,7 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
 <nav id="tabs"></nav>
 <div id="banner"></div>
 <main id="games"></main>
-<footer>Scores via ESPN's public feed. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL covers preseason and regular season; CFB is Division I. F5 = through 5 innings · HT = halftime.</footer>
+<footer>Scores via ESPN's public feed. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL covers preseason and regular season; CFB is Division I. CFB and NHL show final results only — no halftime or period splits. F5 = through 5 innings · HT = halftime.</footer>
 
 <script>
 (function () {
@@ -300,14 +304,18 @@ var PFX = 'sbx2:';
                       on top of the usual yesterday..+2 window.
    query           -> extra scoreboard params. groups=80 is ESPN's
                       Division I college board; limit lifts the default
-                      cap so a full Saturday slate comes back whole. */
+                      cap so a full Saturday slate comes back whole.
+   noSplit: true   -> final results only: no halftime / F5 split column,
+                      summary or line-score divider. */
 var LEAGUES = [
   { key: 'mlb',  label: 'MLB',  paths: ['baseball/mlb'],    kind: 'innings'  },
   { key: 'wnba', label: 'WNBA', paths: ['basketball/wnba'], kind: 'quarters' },
   { key: 'nfl',  label: 'NFL',  paths: ['football/nfl'],    kind: 'quarters',
     football: true, query: '&limit=200' },
   { key: 'cfb',  label: 'CFB',  paths: ['football/college-football'], kind: 'quarters',
-    football: true, query: '&groups=80&limit=200' }
+    football: true, noSplit: true, query: '&groups=80&limit=200' },
+  { key: 'nhl',  label: 'NHL',  paths: ['hockey/nhl'],      kind: 'periods',
+    noSplit: true }
 ];
 var KEEP_DAYS = 21;
 var LIVE_MS = 10000;   /* whole-slate live sync */
@@ -455,25 +463,34 @@ function calcCut(g, cut, finRe) {
             (finRe ? finRe.test(g.detail) : false);
   return { a: a.s, h: h.s, fin: fin };
 }
-/* football live situation: down & distance + field position, and which
-   side has the ball. ESPN gives the ball spot two ways — a combined
-   "2nd & 7 at GB 32" in downDistanceText, or the short "2nd & 7" plus a
-   separate "GB 32" in possessionText — so fall back through both. */
+/* football live situation: down & distance, ball spot, and which side
+   has the ball. ESPN reports these several ways and not every reply
+   carries all of them — the short "2nd & 7" (shortDownDistanceText) and
+   "GB 32" (possessionText), a combined "2nd & 7 at GB 32"
+   (downDistanceText), and the bare numbers (down / distance) — so each
+   piece falls back through all of them. Possession is resolved
+   separately: a missing possession id only drops the 🏈, never the
+   down & distance. */
+var ORD = ['', '1st', '2nd', '3rd', '4th'];
+function trimStr(v) { return v == null ? '' : String(v).replace(/^\s+|\s+$/g, ''); }
+function competitorIds(c) { return c ? [String(c.id), c.team ? String(c.team.id) : null] : []; }
 function parseFootballSituation(sit, home, away) {
   if (!sit) return null;
-  var text = sit.downDistanceText ||
-    (sit.shortDownDistanceText && sit.possessionText
-      ? sit.shortDownDistanceText + ' at ' + sit.possessionText
-      : (sit.shortDownDistanceText || sit.possessionText || null));
-  if (!text) return null;
-  var possess = null;
-  if (sit.possession != null) {
-    var pid = String(sit.possession);
-    function idsOf(c) { return c ? [String(c.id), c.team ? String(c.team.id) : null] : []; }
-    if (idsOf(home).indexOf(pid) !== -1) possess = 'home';
-    else if (idsOf(away).indexOf(pid) !== -1) possess = 'away';
+  var full = trimStr(sit.downDistanceText);
+  var at = full.lastIndexOf(' at ');
+  var dn = num(sit.down), dist = num(sit.distance);
+  var down = trimStr(sit.shortDownDistanceText) || (at > 0 ? trimStr(full.slice(0, at)) : full) ||
+    (dn != null && dn >= 1 && dn <= 4 && dist != null && dist >= 0 ? ORD[dn] + ' & ' + dist : '');
+  var spot = trimStr(sit.possessionText) || (at > 0 ? trimStr(full.slice(at + 4)) : '');
+  var possess = null, pid = sit.possession;
+  if (pid && typeof pid === 'object') pid = pid.id || (pid.team && pid.team.id);
+  if (pid != null && pid !== '') {
+    pid = String(pid);
+    if (competitorIds(home).indexOf(pid) !== -1) possess = 'home';
+    else if (competitorIds(away).indexOf(pid) !== -1) possess = 'away';
   }
-  return { text: text, possess: possess, redzone: sit.isRedZone === true };
+  if (!down && !spot) return null;
+  return { down: down, spot: spot, possess: possess, redzone: sit.isRedZone === true };
 }
 /* soccer halftime: half-by-half linescores when ESPN provides them,
    otherwise a live snapshot taken during the 1st half / at HT
@@ -537,12 +554,13 @@ function parseScoreboard(json, lg) {
       g.f5 = calcCut(g, 5, null);
     }
     else if (lg.kind === 'quarters') {
-      g.ht = calcCut(g, 2, /half/i);
+      if (!lg.noSplit) g.ht = calcCut(g, 2, /half/i);
       if (g.state === 'in' && lg.football && comp.situation) {
         g.fb = parseFootballSituation(comp.situation, home, away);
       }
     }
-    else g.ht = calcHTSoccer(g);
+    else if (lg.kind === 'soccer') g.ht = calcHTSoccer(g);
+    /* 'periods' (NHL): final scores only — nothing extra to derive */
     games.push(g);
   }
   return games;
@@ -815,21 +833,20 @@ function rowHTML(team, g, f5val, fbSit) {
   else scoreTxt = team.score !== '' ? team.score : (g.state === 'in' ? '0' : '\u2013');
   var f5cell = f5val != null ? '<div class="f5col num">' + esc(f5val) + '</div>' : '';
   var ball = fbSit ? '<span class="fbicon" role="img" aria-label="Has the ball">\ud83c\udfc8</span>' : '';
-  var fbLine = fbSit ? '<div class="fb' + (fbSit.redzone ? ' rz' : '') + '">' + esc(fbSit.text) + '</div>' : '';
   return '<div class="trow' + (loser ? ' loser' : '') + '">' +
     tileHTML(team) +
     '<div class="tname"><div class="n">' + ball + esc(team.name) + '</div>' +
     (team.rec ? '<div class="r num">' + esc(team.rec) + '</div>' : '') +
-    fbLine + '</div>' +
+    '</div>' +
     '<div class="score num' + ((g.state === 'in' && !g.flag) ? ' slive' : '') + '">' + esc(scoreTxt) + so + '</div>' +
     f5cell +
     '</div>';
 }
-function lsTable(g, kind, forceOpen) {
+function lsTable(g, kind, forceOpen, noSplit) {
   var aw = g.away.ls, hm = g.home.ls;
   if (!aw.length && !hm.length) return '';
   var n = Math.max(aw.length, hm.length, kind === 'innings' ? 9 : 4), i;
-  var cut = kind === 'innings' ? 5 : 2;
+  var cut = noSplit ? 0 : (kind === 'innings' ? 5 : 2);
   var head = '<tr><th></th>';
   for (i = 1; i <= n; i++) {
     var lab = kind === 'quarters' ? (i <= 4 ? 'Q' + i : (i === 5 ? 'OT' : 'OT' + (i - 4))) : String(i);
@@ -879,6 +896,19 @@ function atBatHTML(sit) {
   out += '</div>';
   return out;
 }
+/* live football: possession, down & distance and ball spot, spaced out
+   on one full-width line (wrapping if it must) under the status */
+function fbSitHTML(g) {
+  var fb = g.fb;
+  if (!fb || g.state !== 'in') return '';
+  var down = fb.down || fb.text || '';   /* .text: cached by older builds */
+  var team = fb.possess === 'home' ? g.home : (fb.possess === 'away' ? g.away : null);
+  var out = '';
+  if (team) out += '<span><span class="fbicon" role="img" aria-label="Ball">\ud83c\udfc8</span>' + esc(team.abbr) + '</span>';
+  if (down) out += '<span><span class="ab-lbl">Down</span>' + esc(down) + '</span>';
+  if (fb.spot) out += '<span><span class="ab-lbl">Ball on</span>' + esc(fb.spot) + '</span>';
+  return out ? '<div class="fbsit' + (fb.redzone ? ' rz' : '') + '">' + out + '</div>' : '';
+}
 function statusHTML(g) {
   var pill = '';
   if (g.flag) pill = '<span class="flagpill">' + esc(g.flag) + '</span>';
@@ -894,7 +924,8 @@ function statusHTML(g) {
 }
 /* right-side game summary: who won/leads by how much, and combined totals */
 function unitWord(kind, n) {
-  var u = kind === 'innings' ? ['run', 'runs'] : (kind === 'soccer' ? ['goal', 'goals'] : ['pt', 'pts']);
+  var u = kind === 'innings' ? ['run', 'runs'] :
+    ((kind === 'soccer' || kind === 'periods') ? ['goal', 'goals'] : ['pt', 'pts']);
   return n === 1 ? u[0] : u[1];
 }
 function marginLine(g, aV, hV, kind, allowPens) {
@@ -931,14 +962,17 @@ function gsumHTML(g, kind, seg) {
   }
   return parts ? '<div class="gsum num">' + parts + '</div>' : '';
 }
-function cardHTML(g, kind, opts) {
+function cardHTML(g, lg, opts) {
   opts = opts || {};
+  var kind = lg.kind;
   var startT = g.tbd && g.state === 'pre' ? 'Time TBD' : timeLabel(g.start);
   var stime = startT ? '<div class="stime num">' + esc(startT) + '</div>' : '';
   var trk = (!opts.track && g.state === 'in') ? '<button class="trk" data-track="' + esc(g.id) + '">Track live</button>' : '';
   var seg = null, segLab = '';
-  if (g.f5 && g.f5.fin) { seg = g.f5; segLab = 'First 5 innings'; }
-  else if (g.ht && g.ht.fin) { seg = g.ht; segLab = 'Halftime'; }
+  if (!lg.noSplit) {   /* CFB, NHL: final results only — also skips halftimes cached by older builds */
+    if (g.f5 && g.f5.fin) { seg = g.f5; segLab = 'First 5 innings'; }
+    else if (g.ht && g.ht.fin) { seg = g.ht; segLab = 'Halftime'; }
+  }
   var scoreLab = '';
   if (g.completed) scoreLab = '<span class="fint">\u2713 Final</span>';
   else if (g.state === 'in' && !g.flag) scoreLab = '<span class="livet">Live</span>';
@@ -952,12 +986,13 @@ function cardHTML(g, kind, opts) {
   return '<div class="card' + (g.state === 'post' ? ' post' : '') + (opts.track ? ' track' : '') + '" data-id="' + esc(g.id) + '">' +
     '<div class="top"><div class="topleft">' + statusHTML(g) + stime + '</div>' + trk + '</div>' +
     atBatHTML(g.sit) +
+    fbSitHTML(g) +
     '<div class="mid"><div class="rows">' +
     f5head +
     rowHTML(g.away, g, seg ? seg.a : null, g.fb && g.fb.possess === 'away' ? g.fb : null) +
     rowHTML(g.home, g, seg ? seg.h : null, g.fb && g.fb.possess === 'home' ? g.fb : null) +
     '</div>' + gsum + '</div>' +
-    (kind === 'soccer' ? '' : lsTable(g, kind, !!opts.track)) +
+    ((kind === 'soccer' || kind === 'periods') ? '' : lsTable(g, kind, !!opts.track, lg.noSplit)) +
     '</div>';
 }
 function liveCount(lgKey, ds) {
@@ -1018,7 +1053,7 @@ function renderTrack() {
     $('games').innerHTML = '<div class="empty"><div class="big">Game unavailable</div>Couldn\u2019t find this game in the latest data \u2014 go back and re-sync.</div>';
     return;
   }
-  $('games').innerHTML = cardHTML(g, lg.kind, { track: true });
+  $('games').innerHTML = cardHTML(g, lg, { track: true });
 }
 
 function render() {
@@ -1058,7 +1093,7 @@ function render() {
   }
   var keep = detailStates();
   var html = '', i;
-  for (i = 0; i < entry.games.length; i++) { html += cardHTML(entry.games[i], lg.kind); }
+  for (i = 0; i < entry.games.length; i++) { html += cardHTML(entry.games[i], lg); }
   main.innerHTML = html;
   restoreDetails(keep);
 }
