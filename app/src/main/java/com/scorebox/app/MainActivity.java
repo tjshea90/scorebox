@@ -4,6 +4,7 @@ import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
 import android.webkit.WebChromeClient;
@@ -18,6 +19,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -36,14 +38,32 @@ import java.util.Map;
  */
 public class MainActivity extends Activity {
 
+    private static final String TAG = "ScoreBoxRelay";
     private static final String APP_HOST = "appassets.androidplatform.net";
     private static final String API_HOST = "site.api.espn.com";
-    private static final String START_URL = "https://appassets.androidplatform.net/index.html";
+    /* versionCode is the CI run number and lines up 1:1 with each build's release tag
+       (versionCode 12 == release v3.0.12), so passing it through to the page lets the
+       footer show which build is actually installed -- otherwise there's no way to
+       tell from the app itself which fix a given screenshot does or doesn't include. */
+    private static final String START_URL =
+        "https://appassets.androidplatform.net/index.html?v=" + BuildConfig.VERSION_CODE;
     private static final int BG = 0xFF0C1014; // Night Field
-    private static final int TIMEOUT_MS = 12000;
+    private static final int TIMEOUT_MS = 20000;
+    /* Sent on relay requests instead of this device's own WebView.getUserAgentString().
+       On a tablet whose system WebView is frozen years out of date (common once a
+       32-bit-only device stops getting WebView updates from Play Store), that string
+       advertises a long-deprecated Chrome build -- which ESPN's edge/bot protection
+       can and does reject outright ("Access Denied") even though the request is
+       otherwise completely normal. A real browser on the same device/network isn't
+       affected because it's a separately-updated app, not tied to system WebView.
+       Spoofing a current UA here only affects this native relay call, not how the
+       page itself renders. Will need bumping again someday as this string ages too,
+       just far more slowly than a WebView that can't update at all. */
+    private static final String RELAY_USER_AGENT =
+        "Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) "
+        + "Chrome/128.0.0.0 Mobile Safari/537.36";
 
     private WebView web;
-    private String userAgent = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -68,7 +88,6 @@ public class MainActivity extends Activity {
         settings.setCacheMode(WebSettings.LOAD_DEFAULT);
         settings.setMediaPlaybackRequiresUserGesture(true);
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-        userAgent = settings.getUserAgentString();
 
         web.setWebViewClient(new LocalClient());
         web.setWebChromeClient(new WebChromeClient());
@@ -156,6 +175,20 @@ public class MainActivity extends Activity {
                 new HashMap<String, String>(), new ByteArrayInputStream(new byte[0]));
     }
 
+    /** A same-origin (CORS-enabled) error response, so a relay failure surfaces to the
+     *  page's fetch() as a normal non-ok response instead of falling through to a real
+     *  cross-origin request that WebView would then block on CORS anyway — that fallback
+     *  both wastes a whole extra timeout window and throws away the real failure reason. */
+    private WebResourceResponse errorResponse(int code, String message, String detail) {
+        Log.w(TAG, "relay: " + code + " " + message + " - " + detail);
+        Map<String, String> headers = new HashMap<>();
+        headers.put("Access-Control-Allow-Origin", "*");
+        headers.put("Cache-Control", "no-cache");
+        byte[] body = ("relay error: " + detail).getBytes(StandardCharsets.UTF_8);
+        return new WebResourceResponse("text/plain", "utf-8", code, message, headers,
+                new ByteArrayInputStream(body));
+    }
+
     /** GETs an ESPN API URL server-side and hands the response back to the page, CORS-free. */
     private WebResourceResponse relay(String urlString) {
         HttpURLConnection conn = null;
@@ -166,14 +199,24 @@ public class MainActivity extends Activity {
             conn.setConnectTimeout(TIMEOUT_MS);
             conn.setReadTimeout(TIMEOUT_MS);
             conn.setRequestProperty("Accept", "application/json, text/plain, */*");
-            if (userAgent != null && userAgent.length() > 0) {
-                conn.setRequestProperty("User-Agent", userAgent);
-            }
+            conn.setRequestProperty("User-Agent", RELAY_USER_AGENT);
+            /* A believable User-Agent alone can look more suspicious than none at all if
+               it isn't backed by the client-hint/fetch-metadata headers a real Chrome
+               sends alongside it -- so these travel together with RELAY_USER_AGENT. */
+            conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+            conn.setRequestProperty("Sec-Fetch-Site", "same-site");
+            conn.setRequestProperty("Sec-Fetch-Mode", "cors");
+            conn.setRequestProperty("Sec-Fetch-Dest", "empty");
+            conn.setRequestProperty("sec-ch-ua",
+                "\"Chromium\";v=\"128\", \"Android WebView\";v=\"128\", \"Not;A=Brand\";v=\"24\"");
+            conn.setRequestProperty("sec-ch-ua-mobile", "?1");
+            conn.setRequestProperty("sec-ch-ua-platform", "\"Android\"");
 
             int code = conn.getResponseCode();
             if (code < 100 || code > 599 || (code >= 300 && code < 400)) {
+                String detail = "unexpected upstream status " + code;
                 conn.disconnect();
-                return null;
+                return errorResponse(502, "Bad Gateway", detail);
             }
 
             String message = conn.getResponseMessage();
@@ -213,7 +256,8 @@ public class MainActivity extends Activity {
             if (conn != null) {
                 try { conn.disconnect(); } catch (Exception ignored) {}
             }
-            return null;
+            String detail = e.getClass().getSimpleName() + ": " + String.valueOf(e.getMessage());
+            return errorResponse(502, "Bad Gateway", detail);
         }
     }
 

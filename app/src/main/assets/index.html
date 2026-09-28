@@ -260,9 +260,45 @@ details[open] summary::after { content: " ▴"; }
 .empty { text-align: center; color: #8b99a6; padding: 48px 20px 20px; }
 .empty .big { font-size: 15px; color: #e9eef2; margin-bottom: 6px; font-weight: 700; }
 footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30px; }
+
+/* ---- old-WebView fallback: flexbox `gap` only exists in Chrome 84+.
+       Android 10 tablets often ship an older System WebView that
+       silently ignores it, so everything butts together (tile against
+       team name, score against the F5 line, tabs touching). The script
+       at the top of <body> tags <html class="nogap"> when gap is
+       unsupported and these margins stand in for it. ---- */
+.nogap .bar > * + *,
+.nogap .datebar > * + * { margin-left: 8px; }
+.nogap .meta > * + * { margin-left: 6px; }
+.nogap #trackbar > * + * { margin-left: 10px; }
+.nogap nav > * + * { margin-left: 6px; }
+.nogap #pull > * + * { margin-left: 8px; }
+.nogap .card .top > * + * { margin-left: 10px; }
+.nogap .trow > * + *,
+.nogap .f5head > * + *,
+.nogap .mid > * + * { margin-left: 10px; }
+/* wrapping rows: trailing margins so wrapped lines stay flush left */
+.nogap .statleft > * { margin-right: 8px; }
+.nogap .atbat > * { margin-right: 14px; }
+.nogap .fbsit > * { margin-right: 18px; }
 </style>
 </head>
 <body>
+<script>
+/* feature-test flexbox gap before first paint (see .nogap styles) */
+(function () {
+  try {
+    var d = document.createElement('div');
+    d.style.cssText = 'display:flex;flex-direction:column;row-gap:1px;position:absolute;visibility:hidden';
+    d.appendChild(document.createElement('div'));
+    d.appendChild(document.createElement('div'));
+    document.body.appendChild(d);
+    var ok = d.scrollHeight === 1;
+    document.body.removeChild(d);
+    if (!ok) document.documentElement.className += ' nogap';
+  } catch (e) {}
+})();
+</script>
 
 <header>
   <div class="bar">
@@ -271,7 +307,7 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
     <button id="liveBtn"><span class="ldot"></span>Live sync</button>
     <button id="syncBtn">Sync all</button>
   </div>
-  <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span></div>
+  <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span><span id="buildTag"></span></div>
 </header>
 
 <div id="pull"><span class="pdot"></span><span id="pullLabel">Pull to refresh</span></div>
@@ -401,16 +437,26 @@ function textOn(hex) {
   return (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? '#10151b' : '#f4f8fb';
 }
 
-/* ---------- fetch with 12s timeout ---------- */
+/* ---------- fetch with 20s timeout ----------
+   Matches MainActivity's native relay timeout (TIMEOUT_MS) -- this one must
+   stay >= that one, or the page aborts the request before the relay's own
+   longer budget ever gets a chance to finish it. */
 function fetchJSON(url) {
   return new Promise(function (resolve, reject) {
     var ctl = null, to = null;
     try { ctl = new AbortController(); } catch (e) {}
-    if (ctl) to = setTimeout(function () { ctl.abort(); }, 12000);
+    if (ctl) to = setTimeout(function () { ctl.abort(); }, 20000);
     fetch(url, ctl ? { signal: ctl.signal } : undefined)
       .then(function (r) {
         if (to) clearTimeout(to);
-        if (!r.ok) { throw new Error('HTTP ' + r.status); }
+        if (!r.ok) {
+          /* Read the body for diagnostics -- on a relay failure this carries the
+             real underlying exception (see MainActivity's errorResponse), which
+             is otherwise invisible without hooking up adb logcat. */
+          return r.text().catch(function () { return ''; }).then(function (body) {
+            throw new Error('HTTP ' + r.status + (body ? ': ' + body.slice(0, 500) : ''));
+          });
+        }
         return r.json();
       })
       .then(resolve)
@@ -489,7 +535,10 @@ function parseFootballSituation(sit, home, away) {
     if (competitorIds(home).indexOf(pid) !== -1) possess = 'home';
     else if (competitorIds(away).indexOf(pid) !== -1) possess = 'away';
   }
-  if (!down && !spot) return null;
+  /* Between snaps (kickoffs, extra points, replay review) ESPN often
+     clears the down/distance but still reports who has the ball —
+     keep the icon showing on possession alone until the next snap. */
+  if (!down && !spot && !possess) return null;
   return { down: down, spot: spot, possess: possess, redzone: sit.isRedZone === true };
 }
 /* soccer halftime: half-by-half linescores when ESPN provides them,
@@ -644,10 +693,11 @@ function oneDayOnly(games, ds) {
    A league can span several ESPN feeds; results are merged and
    sorted by start time. Fails only if every feed fails. */
 function fetchLeagueDate(lg, ds) {
+  var lastErr = null;
   var jobs = lg.paths.map(function (p) {
     return fetchJSON(API + p + '/scoreboard?dates=' + ds + (lg.query || ''))
       .then(function (json) { return parseScoreboard(json, lg); })
-      .catch(function () { return null; });
+      .catch(function (e) { lastErr = e; return null; });
   });
   return Promise.all(jobs).then(function (arrs) {
     var out = [], got = false, i, j;
@@ -656,7 +706,7 @@ function fetchLeagueDate(lg, ds) {
       got = true;
       for (j = 0; j < arrs[i].length; j++) { out.push(arrs[i][j]); }
     }
-    if (!got) throw new Error('all feeds failed');
+    if (!got) throw new Error(lastErr ? String(lastErr.message || lastErr) : 'all feeds failed');
     if (lg.football) out = oneDayOnly(out, ds);
     out.sort(function (a, b) { return String(a.start) < String(b.start) ? -1 : 1; });
     return out;
@@ -686,19 +736,22 @@ function runJobs(jobs, limit) {
 }
 function runSync(pairs, silent) {
   if (state.syncing || !pairs.length) return;
-  if (!navigator.onLine) {
-    if (!silent) { state.errors = ['You\u2019re offline \u2014 showing cached scores.']; render(); }
-    return;
-  }
+  /* Deliberately not gated on navigator.onLine: Android WebView's onLine
+     flag is unreliable over tethered/hotspot connections (it reflects
+     Android's network-validation state, not real connectivity), so we
+     always attempt the fetch and let its own success/failure decide. */
   state.syncing = true;
   state.errors = [];
   if (!silent) render();
-  var fails = {};
+  var fails = {}, firstDetail = null;
   var jobs = pairs.map(function (p) {
     return function () {
       return fetchLeagueDate(p.lg, p.ds)
         .then(function (games) { save(p.lg.key, p.ds, games); })
-        .catch(function () { fails[p.lg.label] = 1; });
+        .catch(function (e) {
+          fails[p.lg.label] = 1;
+          if (!firstDetail) firstDetail = String((e && e.message) || e || '');
+        });
     };
   });
   runJobs(jobs, MAX_PARALLEL).then(function () {
@@ -706,7 +759,11 @@ function runSync(pairs, silent) {
     var names = [], k;
     for (k in fails) { names.push(k); }
     if (names.length && !silent) {
-      state.errors = ['Couldn\u2019t refresh ' + names.join(', ') + ' \u2014 showing cached data where available.'];
+      /* The detail (e.g. "HTTP 502: relay error: UnknownHostException: ...")
+         is shown right in the app so a failure can be diagnosed from the
+         device itself, without needing adb logcat hooked up. */
+      state.errors = ['Couldn\u2019t refresh ' + names.join(', ') + ' \u2014 showing cached data where available.' +
+        (firstDetail ? ' (' + firstDetail + ')' : '')];
     }
     render();
   });
@@ -785,7 +842,7 @@ function setLive(on) {
   if (state.timer) { clearInterval(state.timer); state.timer = null; }
   if (on) {
     state.timer = setInterval(function () {
-      if (state.track || document.hidden || !navigator.onLine || state.syncing) return;
+      if (state.track || document.hidden || state.syncing) return;
       syncToday(true, true);
     }, LIVE_MS);
     if (!state.track) syncToday(true);
@@ -795,7 +852,7 @@ function setLive(on) {
 
 /* ---------- track live: one game, its feed only, every 5s ---------- */
 function trackTick() {
-  if (!state.track || document.hidden || !navigator.onLine || state.syncing) return;
+  if (!state.track || document.hidden || state.syncing) return;
   var dates = {}, i;
   for (i = 0; i < LEAGUES.length; i++) {
     dates[LEAGUES[i].key] = LEAGUES[i].key === state.track.lgKey ? [state.track.ds] : [];
@@ -1178,10 +1235,17 @@ window.addEventListener('offline', render);
   document.addEventListener('touchcancel', function () { dragging = false; if (!refreshing) close(); }, { passive: true });
 })();
 
-/* ---------- boot ---------- */
+/* ---------- boot ----------
+   MainActivity passes its versionCode as ?v=<n> on the start URL (it lines up
+   1:1 with each build's release tag, e.g. v=12 == release v3.0.12) so a
+   screenshot of the app always shows which build produced it. */
+(function () {
+  var m = /[?&]v=(\d+)/.exec(location.search);
+  if (m) $('buildTag').textContent = ' · build ' + m[1];
+})();
 loadPrefs();
 render();
-if (navigator.onLine) syncToday(true);
+syncToday(true);
 })();
 </script>
 </body>
