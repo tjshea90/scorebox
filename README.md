@@ -1,6 +1,7 @@
 # ScoreBox
 
-A pocket scoreboard for MLB, WNBA, NFL, CFB and NHL. Scores come straight from
+A pocket scoreboard for MLB, NBA, WNBA, NFL, CFB, CBB (college basketball)
+and NHL — with any of them switchable on or off. Scores come straight from
 ESPN's public scoreboard feed — no accounts, no ads, no backend of your own
 to run.
 
@@ -145,6 +146,36 @@ and at halftime, so the line is simply absent at those moments.
    summary (winner, margin in goals, combined total) and ESPN's
    `Final/OT` / `Final/SO` status — no period-by-period line score or
    intermediate splits.
+6. **NBA tab** (`basketball/nba`): same layout and features as WNBA —
+   quarters, halftime split, Final summary. ESPN's feed returns preseason
+   and regular-season games by date alike, so both show up with no extra
+   handling.
+7. **CBB tab** — Division I men's college basketball
+   (`basketball/mens-college-basketball`, `groups=50`). Same layout as the
+   other basketball tabs, but college games are two halves, so the line
+   score reads `1H · 2H · OT · 2OT…` and the halftime split follows the
+   first half. `groups=50` is what makes ESPN return the full D-I slate
+   (without it only ~15 featured games come back), and `limit=400` stops a
+   big Saturday (139 games) being cut off at the default 100.
+8. **Add / remove leagues.** Tap **Edit** beside the tabs to open the
+   Leagues sheet and switch any league on or off — e.g. drop NFL when the
+   season ends, add it back in August. The choice is saved on the device
+   (`sbx2:prefs` → `leagues`). Everyone starts with all leagues on, and at
+   least one has to stay on.
+
+   A league that's off isn't just hidden — it is never synced. Every sync
+   path (boot sync, Sync all, pull-to-refresh, Live sync, the `online`
+   re-sync, game tracking) builds its fetch list from `activeLeagues()`, so
+   no request is made for a removed league's scores or schedule until it is
+   switched back on. Switching one on gives just that league its normal
+   full sync (yesterday → +2 days, the day on screen, and the whole football
+   week for NFL/CFB) when the sheet closes; without that sync it would show
+   stale cached days. Already-cached days of a removed league are left in
+   place and age out under the usual 21-day prune. Android's Back button
+   closes the sheet.
+
+   On phones the tabs shrink slightly so all seven fit a 360px screen with
+   Edit; anything narrower scrolls the tab strip sideways.
 
 ## Bug fixes since the initial reconstruction
 
