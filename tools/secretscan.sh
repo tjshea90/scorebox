@@ -16,7 +16,7 @@
 #
 #   bash tools/secretscan.sh          # scans STAGED changes; 0 = clean
 #
-# Once Mirage's live-odds/scores provider is chosen, that provider's own key
+# Once any API provider is chosen, that provider's own key
 # SHAPE (if it has one recognisable and distinct from a generic string, the
 # way ghp_/sk-/AIza prefixes are) is worth adding here — check what it looks
 # like before assuming the existing generic patterns already cover it.
