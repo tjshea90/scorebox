@@ -1,0 +1,66 @@
+{
+  "_comment": "TEMPLATE — do not copy this file into place by hand. Install it with `bash tools/install-hooks.sh`, which substitutes __REPO_ROOT__ for the real container root and MERGES these entries into the target settings file instead of overwriting it. Every entry is tagged 'claude-checkpoint-hooks'; the installer only ever replaces entries carrying that tag (or an entry invoking one of these scripts, tagged or not — see install-hooks.sh's LEGACY list), so a user's own permissions, env and other projects' hooks survive. SHARED ACROSS EVERY CHECKPOINT-MANAGED REPO IN THIS CONTAINER: the commands below glob every repo under the session root that has this same tools/hooks/ layout, so installing this ONCE (from any one of them) protects every project in the container, and each entry point aggregates all of them into ONE JSON object (see tools/hooks/emit.py — two objects do not parse, and that silently costs an entire session briefing). WHY NOT EACH REPO'S OWN .claude/settings.json: confirmed that Claude Code on the web does not load hooks from a repo that sits in a subdirectory of the session root — CLAUDE_PROJECT_DIR is unset and one project root is resolved for the whole session.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for f in __REPO_ROOT__/*/tools/hooks/brief.sh; do [ -f \"$f\" ] && exec bash \"$f\"; done; true  # claude-checkpoint-hooks",
+            "timeout": 120,
+            "statusMessage": "Reading where the last session stopped..."
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|NotebookEdit|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for f in __REPO_ROOT__/*/tools/hooks/save.sh; do [ -f \"$f\" ] && exec bash \"$f\"; done; true  # claude-checkpoint-hooks",
+            "timeout": 90,
+            "statusMessage": "Checkpointing to GitHub..."
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for f in __REPO_ROOT__/*/tools/hooks/save.sh; do [ -f \"$f\" ] && exec bash \"$f\"; done; true  # claude-checkpoint-hooks",
+            "timeout": 90,
+            "statusMessage": "Final checkpoint..."
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for f in __REPO_ROOT__/*/tools/hooks/big.sh; do [ -f \"$f\" ] && exec bash \"$f\"; done; true  # claude-checkpoint-hooks",
+            "timeout": 90,
+            "statusMessage": "Session is large - saving before compaction..."
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "for f in __REPO_ROOT__/*/tools/hooks/screen.sh; do [ -f \"$f\" ] && exec bash \"$f\"; done; true  # claude-checkpoint-hooks",
+            "timeout": 30,
+            "statusMessage": "Screening request..."
+          }
+        ]
+      }
+    ]
+  }
+}
