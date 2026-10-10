@@ -72,7 +72,7 @@ first. This file was written after discovering a feature branch had drifted
 superseded version of this same workflow — rebase onto `origin/main` rather
 than assuming a long-lived local branch is current.
 
-## Saving work and cold resume (added 2026-10-10)
+## FIRST ACTION OF EVERY SESSION — hooks, saving work and cold resume (added 2026-10-10)
 
 ScoreBox shares the checkpoint system of Tj's other repos, adapted for one difference: **a push to `main` builds and publishes a release, so autosave and `tools/push.sh` push only the session's own branch and never touch `main`.** Landing on `main` stays the deliberate step described above.
 

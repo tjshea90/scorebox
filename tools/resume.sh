@@ -132,10 +132,9 @@ BRIEF="$(
         echo "        main) — both have commits the other lacks. Reconcile by hand before"
         echo "        trusting either as the full state."
       elif [ "${MBEHIND:-0}" -gt 0 ]; then
-        echo "  WARN  origin/main is $MBEHIND commit(s) behind this branch — a fresh"
-        echo "        session opening this repo cold would miss real work. Run"
-        echo "        landing it on main is DELIBERATE here (a push to main builds a"
-        echo "        release): when the work is validated, 'git push origin HEAD:main'."
+        echo "  NOTE  this branch is $MBEHIND commit(s) ahead of origin/main. Normal here: a push"
+        echo "        to main builds a release, so landing it is deliberate (CLAUDE.md, \"One app"
+        echo "        branch\"). Once validated: 'git push origin HEAD:main'."
       else
         echo "  OK    origin/main is current with this branch."
       fi
