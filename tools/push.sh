@@ -53,21 +53,9 @@ if timeout 45 git push -q origin "HEAD:refs/heads/$BR" >/dev/null 2>&1; then
   timeout 10 git fetch -q origin "$BR:refs/remotes/origin/$BR" >/dev/null 2>&1 || true
   git branch --set-upstream-to="origin/$BR" "$BR" >/dev/null 2>&1 || true
 
-  # KEEP main CURRENT, BEST-EFFORT. Claude Code can assign a different local
-  # branch name to every session, so a session that only pushes its own
-  # branch leaves the DEFAULT branch stale — and a future session/account
-  # that just opens the repo (rather than rediscovering a specific branch
-  # name) lands on that stale default and sees none of this. Left unguarded,
-  # main can sit hundreds of commits behind for the length of a whole
-  # migration before anyone notices.
-  #
-  # Plain (non-force) push, so this can only FAST-FORWARD main. If main ever
-  # diverges (something else was pushed there independently), git refuses and
-  # this fails silently — never overwrite unrelated work to keep a convenience
-  # in sync.
-  if [ "$BR" != "main" ]; then
-    timeout 10 git push -q origin "HEAD:refs/heads/main" >/dev/null 2>&1 || true
-  fi
+  # NOTE: unlike the sibling repos, this one does NOT fast-forward main.
+  # A push to main triggers build-release.yml (a signed APK + public Release),
+  # so landing on main is a deliberate step, never a side effect of autosave.
   exit 0
 fi
 exit 1

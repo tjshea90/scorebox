@@ -43,7 +43,7 @@ true
 
 BRIEF="$(
   echo "=============================================================================="
-  echo "  RESUMING MIRAGE — this repo can be worked across several Claude Code"
+  echo "  RESUMING SCOREBOX — this repo can be worked across several Claude Code"
   echo "  sessions. A previous session may have been cut off mid-change. Read this"
   echo "  before planning anything, and do NOT re-derive work that is already"
   echo "  committed."
@@ -134,8 +134,8 @@ BRIEF="$(
       elif [ "${MBEHIND:-0}" -gt 0 ]; then
         echo "  WARN  origin/main is $MBEHIND commit(s) behind this branch — a fresh"
         echo "        session opening this repo cold would miss real work. Run"
-        echo "        'git push origin HEAD:main' (tools/push.sh should do this"
-        echo "        automatically on the next checkpoint; say so if it doesn't)."
+        echo "        landing it on main is DELIBERATE here (a push to main builds a"
+        echo "        release): when the work is validated, 'git push origin HEAD:main'."
       else
         echo "  OK    origin/main is current with this branch."
       fi
@@ -154,34 +154,6 @@ BRIEF="$(
       echo "        none appear over a few tool calls, the hooks are not firing —"
       echo "        run 'bash tools/install-hooks.sh' and say so rather than"
       echo "        working on unprotected."
-    fi
-
-    # IS THERE A RELEASE GITHUB BUILT THAT NOBODY RECORDED?
-    #
-    # The release flow has a seam: GitHub builds and publishes, then a SECOND command
-    # (tools/record-release.sh) writes the line into BUILDLOG.md. A usage cap landing in
-    # between leaves a shipped version that BUILDLOG does not know about - and BUILDLOG is
-    # what the NEXT release's versionCode is gated against, in ship.sh and in the workflow
-    # alike. So the next version would be allowed to reuse a code that is already on the
-    # phone, and Android would refuse to install it.
-    #
-    # Nothing else reports this: the tree is clean, the tests are green, and the only sign
-    # is a tag with no matching BUILDLOG line. Cheap to check, and it is checked from the
-    # TAGS, which is what GitHub actually creates.
-    VC="$(grep -m1 -oE 'versionCode *= *[0-9]+' app/build.gradle.kts 2>/dev/null | grep -oE '[0-9]+' || true)"
-    VN="$(grep -m1 -oE 'versionName *= *"[^"]+"' app/build.gradle.kts 2>/dev/null | grep -oE '"[^"]+"' | tr -d '"' || true)"
-    if [ -n "$VN" ] && git rev-parse -q --verify "refs/tags/v$VN" >/dev/null 2>&1; then
-      if ! grep -q "^| v${VN} |" BUILDLOG.md 2>/dev/null; then
-        echo
-        echo "  !!    v$VN WAS RELEASED BUT NEVER RECORDED."
-        echo "        GitHub built and published tag v$VN, but BUILDLOG.md has no line for"
-        echo "        it - a session was cut off between the two. BUILDLOG is what the NEXT"
-        echo "        release's versionCode is gated against, so leaving it means the next"
-        echo "        version can reuse code $VC and the phone will refuse the install."
-        echo
-        echo "          bash tools/record-release.sh v$VN \"what that release changed\""
-        echo
-      fi
     fi
 
     # WAS THE LAST SESSION CUT OFF MID-CHANGE?
@@ -229,7 +201,14 @@ BRIEF="$(
     echo
   fi
 
-  bash bootstrap.sh 2>&1 || true
+  echo "== STANDING RULES (full text: CLAUDE.md) =="
+  echo "  - main is the one release branch; a push to main builds+releases an APK. Autosave pushes ONLY this session's branch."
+  echo "  - SETUP RULE (Tj 2026-10-10): at session start review plugins/skills/connectors (ListSkills/ListPlugins/ListConnectors),"
+  echo "    use any that improve Android 16 app building, UI/theming, code accuracy or Claude-usage efficiency; on conflict pick the best."
+  echo "  - Save often: bash tools/ckpt.sh \"did\" \"next\" after every step; assume you can be cut off any moment."
+  echo
+  for f in CHECKPOINT.md; do [ -f "$f" ] && { echo "##### $f #####"; cat "$f"; echo; }; done
+  if [ -f TASKS.md ]; then echo "##### TASKS.md (open items) #####"; grep -n '^\s*- \[ \]' TASKS.md | cut -c1-200 | head -40; echo; fi
 )"
 
 # Claude Code takes SessionStart stdout as context. JSON with additionalContext
