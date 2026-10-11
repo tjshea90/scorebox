@@ -639,10 +639,28 @@ function parseFootballSituation(sit, home, away) {
   var spot = trimStr(sit.possessionText) || (at > 0 ? trimStr(full.slice(at + 4)) : '');
   var possess = null, pid = sit.possession;
   if (pid && typeof pid === 'object') pid = pid.id || (pid.team && pid.team.id);
+  /* Timeouts, reviews and other dead-ball moments often arrive with no
+     "possession" at all; the last play still names the team now holding
+     the ball (end.team — start.team can be whoever called the timeout).
+     Skipped after a score, when the ball is about to change hands. */
+  var lp = sit.lastPlay;
+  if ((pid == null || pid === '') && lp && !(num(lp.scoreValue) > 0)) {
+    var lt = (lp.end && lp.end.team) || lp.team;
+    if (lt && lt.id != null) pid = lt.id;
+  }
   if (pid != null && pid !== '') {
     pid = String(pid);
     if (competitorIds(home).indexOf(pid) !== -1) possess = 'home';
     else if (competitorIds(away).indexOf(pid) !== -1) possess = 'away';
+  }
+  /* No spot text but a yardLine: it counts yards from the HOME goal line
+     (UGA at ALA: 45 = "ALA 45"; USC at PSU: 87 = "USC 13"). */
+  var yl = num(sit.yardLine);
+  if (!spot && yl != null && yl >= 1 && yl <= 99 && (possess || down)) {
+    var hAb = home && home.team && home.team.abbreviation, aAb = away && away.team && away.team.abbreviation;
+    if (yl === 50) spot = '50';
+    else if (yl < 50 && hAb) spot = hAb + ' ' + yl;
+    else if (yl > 50 && aAb) spot = aAb + ' ' + (100 - yl);
   }
   /* Between snaps (kickoffs, extra points, replay review) ESPN often
      clears the down/distance but still reports who has the ball —
