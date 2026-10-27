@@ -33,6 +33,8 @@ import java.util.Map;
  *                                                  public scoreboard JSON without hitting CORS
  *                                                  restrictions a plain fetch() would run into
  *                                                  from a file:// or custom-scheme origin.
+ *  - https://guest.api.arcadia.pinnacle.com/0.1/  relayed the same way (with the headers the
+ *                                                  site API wants) for the optional odds feature.
  *
  * Anything else (an outbound link tapped inside the page) is handed off to the system browser.
  */
@@ -41,6 +43,12 @@ public class MainActivity extends Activity {
     private static final String TAG = "ScoreBoxRelay";
     private static final String APP_HOST = "appassets.androidplatform.net";
     private static final String API_HOST = "site.api.espn.com";
+    /* Pinnacle's public website API: the free source of the odds feature (full-game and
+       first-half / first-5-innings lines). Its key is the one pinnacle.com itself sends every
+       visitor's browser -- public, not an account secret -- and it only answers requests that
+       look like they come from the site, so the relay adds both headers. */
+    private static final String ODDS_HOST = "guest.api.arcadia.pinnacle.com";
+    private static final String ODDS_KEY = "CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R";
     /* versionCode is the CI run number and lines up 1:1 with each build's release tag
        (versionCode 12 == release v3.0.12), so passing it through to the page lets the
        footer show which build is actually installed -- otherwise there's no way to
@@ -211,6 +219,11 @@ public class MainActivity extends Activity {
                 "\"Chromium\";v=\"128\", \"Android WebView\";v=\"128\", \"Not;A=Brand\";v=\"24\"");
             conn.setRequestProperty("sec-ch-ua-mobile", "?1");
             conn.setRequestProperty("sec-ch-ua-platform", "\"Android\"");
+            if (ODDS_HOST.equalsIgnoreCase(conn.getURL().getHost())) {
+                conn.setRequestProperty("x-api-key", ODDS_KEY);
+                conn.setRequestProperty("Referer", "https://www.pinnacle.com/");
+                conn.setRequestProperty("Origin", "https://www.pinnacle.com");
+            }
 
             int code = conn.getResponseCode();
             if (code < 100 || code > 599 || (code >= 300 && code < 400)) {
@@ -286,6 +299,10 @@ public class MainActivity extends Activity {
                 return fromAssets(uri.getPath());
             }
             if (API_HOST.equalsIgnoreCase(host) && "GET".equalsIgnoreCase(request.getMethod())) {
+                return relay(uri.toString());
+            }
+            if (ODDS_HOST.equalsIgnoreCase(host) && "GET".equalsIgnoreCase(request.getMethod())
+                    && uri.getPath() != null && uri.getPath().startsWith("/0.1/")) {
                 return relay(uri.toString());
             }
             return null;

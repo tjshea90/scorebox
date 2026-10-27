@@ -41,6 +41,29 @@ keystore/scorebox-release.jks               release signing key (see Releases)
 .github/workflows/build-release.yml         CI: builds + publishes the APK
 ```
 
+## Odds (optional)
+
+The **Odds** button under the header turns on today's betting lines, one block
+per game: spread and total, plus the money line for MLB and NHL (NBA, WNBA,
+NFL, CFB and CBB show spread and total only), for the full game and for the
+first half (first 5 innings in MLB). Once a game starts the lines shrink to one
+quiet line and, when the half (or first 5) and the final are in, badges say
+which team covered and whether the total went over or under.
+
+- **Source:** Pinnacle's public site API (`guest.api.arcadia.pinnacle.com`, the
+  key pinnacle.com itself sends every visitor; `MainActivity` relays it past
+  CORS), league by league. Where Pinnacle has no matching game, the DraftKings
+  line ESPN already embeds in its scoreboard fills the full game. Both are free,
+  keyless for the user.
+- **Fresh:** only the current day is downloaded, only for leagues that still
+  have a game ahead, every 5 minutes (and on every manual sync); a pre-game line
+  older than 15 minutes is flagged "stale". First-half / first-5 lines appear
+  when Pinnacle posts them (usually the day of the game).
+- **Offline:** lines are cached per league and day in `localStorage` next to the
+  schedules and only change on the next successful download. A game's lines
+  freeze when it starts: they are the lines the cover / over-under results are
+  judged against.
+
 ## Building
 
 Requires Android Studio (or the command-line SDK) with Android SDK Platform
