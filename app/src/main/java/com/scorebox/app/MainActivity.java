@@ -35,6 +35,9 @@ import java.util.Map;
  *                                                  from a file:// or custom-scheme origin.
  *  - https://guest.api.arcadia.pinnacle.com/0.1/  relayed the same way (with the headers the
  *                                                  site API wants) for the optional odds feature.
+ *  - https://api.prop-line.com/v1/ and https://api.the-odds-api.com/v4/
+ *                                                  the same, for the optional odds feature's
+ *                                                  user-supplied API keys (quota headers passed back).
  *
  * Anything else (an outbound link tapped inside the page) is handed off to the system browser.
  */
@@ -49,6 +52,26 @@ public class MainActivity extends Activity {
        look like they come from the site, so the relay adds both headers. */
     private static final String ODDS_HOST = "guest.api.arcadia.pinnacle.com";
     private static final String ODDS_KEY = "CmX2KcMrXuFmNg6YFbmTxE0y9CIrOi0R";
+    /* The two keyed odds APIs the user can add their own keys for (the key travels in the query
+       string, as both services document). Plain relays: no browser-style headers. */
+    private static final String PL_HOST = "api.prop-line.com";
+    private static final String OA_HOST = "api.the-odds-api.com";
+    /* quota / retry headers the page reads to rotate between keys */
+    private static final String[] QUOTA_HEADERS = {
+        "x-requests-remaining", "x-requests-used", "x-requests-last", "x-daily-limit",
+        "x-daily-used", "x-daily-remaining", "x-daily-reset", "retry-after", "ratelimit-remaining"
+    };
+
+    /** True for the odds hosts (and only their documented API paths) the page may reach through the relay. */
+    private static boolean isOddsRequest(Uri uri) {
+        String host = uri.getHost();
+        String path = uri.getPath();
+        if (host == null || path == null || !"https".equalsIgnoreCase(uri.getScheme())) return false;
+        if (ODDS_HOST.equalsIgnoreCase(host)) return path.startsWith("/0.1/");
+        if (PL_HOST.equalsIgnoreCase(host)) return path.startsWith("/v1/");
+        if (OA_HOST.equalsIgnoreCase(host)) return path.startsWith("/v4/");
+        return false;
+    }
     /* versionCode is the CI run number and lines up 1:1 with each build's release tag
        (versionCode 12 == release v3.0.12), so passing it through to the page lets the
        footer show which build is actually installed -- otherwise there's no way to
@@ -211,14 +234,18 @@ public class MainActivity extends Activity {
             /* A believable User-Agent alone can look more suspicious than none at all if
                it isn't backed by the client-hint/fetch-metadata headers a real Chrome
                sends alongside it -- so these travel together with RELAY_USER_AGENT. */
-            conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
-            conn.setRequestProperty("Sec-Fetch-Site", "same-site");
-            conn.setRequestProperty("Sec-Fetch-Mode", "cors");
-            conn.setRequestProperty("Sec-Fetch-Dest", "empty");
-            conn.setRequestProperty("sec-ch-ua",
-                "\"Chromium\";v=\"128\", \"Android WebView\";v=\"128\", \"Not;A=Brand\";v=\"24\"");
-            conn.setRequestProperty("sec-ch-ua-mobile", "?1");
-            conn.setRequestProperty("sec-ch-ua-platform", "\"Android\"");
+            String upstream = conn.getURL().getHost();
+            boolean keyedApi = PL_HOST.equalsIgnoreCase(upstream) || OA_HOST.equalsIgnoreCase(upstream);
+            if (!keyedApi) {
+                conn.setRequestProperty("Accept-Language", "en-US,en;q=0.9");
+                conn.setRequestProperty("Sec-Fetch-Site", "same-site");
+                conn.setRequestProperty("Sec-Fetch-Mode", "cors");
+                conn.setRequestProperty("Sec-Fetch-Dest", "empty");
+                conn.setRequestProperty("sec-ch-ua",
+                    "\"Chromium\";v=\"128\", \"Android WebView\";v=\"128\", \"Not;A=Brand\";v=\"24\"");
+                conn.setRequestProperty("sec-ch-ua-mobile", "?1");
+                conn.setRequestProperty("sec-ch-ua-platform", "\"Android\"");
+            }
             if (ODDS_HOST.equalsIgnoreCase(conn.getURL().getHost())) {
                 conn.setRequestProperty("x-api-key", ODDS_KEY);
                 conn.setRequestProperty("Referer", "https://www.pinnacle.com/");
@@ -263,7 +290,12 @@ public class MainActivity extends Activity {
 
             Map<String, String> headers = new HashMap<>();
             headers.put("Access-Control-Allow-Origin", "*");
+            headers.put("Access-Control-Expose-Headers", "*");
             headers.put("Cache-Control", "no-cache");
+            for (String h : QUOTA_HEADERS) {
+                String v = conn.getHeaderField(h);
+                if (v != null) headers.put(h, v);
+            }
             return new WebResourceResponse(mime, charset, code, message, headers, body);
         } catch (Exception e) {
             if (conn != null) {
@@ -301,8 +333,7 @@ public class MainActivity extends Activity {
             if (API_HOST.equalsIgnoreCase(host) && "GET".equalsIgnoreCase(request.getMethod())) {
                 return relay(uri.toString());
             }
-            if (ODDS_HOST.equalsIgnoreCase(host) && "GET".equalsIgnoreCase(request.getMethod())
-                    && uri.getPath() != null && uri.getPath().startsWith("/0.1/")) {
+            if ("GET".equalsIgnoreCase(request.getMethod()) && isOddsRequest(uri)) {
                 return relay(uri.toString());
             }
             return null;

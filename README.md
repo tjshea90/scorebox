@@ -50,15 +50,31 @@ first half (first 5 innings in MLB). Once a game starts the lines shrink to one
 quiet line and, when the half (or first 5) and the final are in, badges say
 which team covered and whether the total went over or under.
 
-- **Source:** Pinnacle's public site API (`guest.api.arcadia.pinnacle.com`, the
-  key pinnacle.com itself sends every visitor; `MainActivity` relays it past
-  CORS), league by league. Where Pinnacle has no matching game, the DraftKings
-  line ESPN already embeds in its scoreboard fills the full game. Both are free,
-  keyless for the user.
+- **Sources** (the **Sources** button; each has its own switch, a source that is
+  off is never called):
+  - **Pinnacle** — its public site API (`guest.api.arcadia.pinnacle.com`, the
+    key pinnacle.com itself sends every visitor; `MainActivity` relays it past
+    CORS). Free, no key. The default line on every game.
+  - **DraftKings via ESPN** — the line ESPN already embeds in its scoreboard.
+    Free, no key, full game only.
+  - **PropLine** (free key, 1,000 requests a day) and **The Odds API** (free key,
+    500 credits a month) — DraftKings, FanDuel, BetMGM, Caesars, Bovada and more,
+    including first-half / first-5-innings lines. Paste any number of keys, one
+    per line: the first usable key is used and when its allowance runs out (a
+    429, a used-up 401/402/403 or a zero remaining count) the next takes over;
+    keys come back at their reset time (PropLine 00:00 UTC, The Odds API the 1st
+    of the month), a key the service rejects is flagged. Keys stay in the app's
+    own storage on the device and are only sent to that service.
+- **Pinnacle only / All books:** by default each game shows Pinnacle's line (for
+  a part Pinnacle has not posted, e.g. the first half, another book's line, named
+  on that row). **All books** lists every book from every source, per part of
+  the game.
 - **Fresh:** only the current day is downloaded, only for leagues that still
-  have a game ahead, every 5 minutes (and on every manual sync); a pre-game line
-  older than 15 minutes is flagged "stale". First-half / first-5 lines appear
-  when Pinnacle posts them (usually the day of the game).
+  have a game ahead. Free sources re-read every 5 minutes, keyed ones every 15
+  (their allowance is a budget); a pull to refresh or **Sync all** re-downloads
+  every source at once, replacing anything stale from earlier refreshes. A
+  pre-game line older than 15 minutes is flagged "stale". First-half / first-5
+  lines appear when a book posts them (usually the day of the game).
 - **Offline:** lines are cached per league and day in `localStorage` next to the
   schedules and only change on the next successful download. A game's lines
   freeze when it starts: they are the lines the cover / over-under results are
