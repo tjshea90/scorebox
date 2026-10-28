@@ -376,6 +376,34 @@ body.tracking .mbtn { display: none; }
 .kst { font-size: 12px; color: #8b99a6; margin-top: 5px; }
 .kst .good { color: #46c87f; } .kst .warn { color: #ffb424; } .kst .bad { color: #ff7a72; }
 
+/* pre-game: the lines sit to the right of each team (away on top, home below).
+   A team whose lines do not fit beside its name drops them onto a line of
+   their own right under it, so the card grows taller instead of squeezing. */
+.trow.hasodds { flex-wrap: wrap; }
+.trow.hasodds + .trow.hasodds { border-top: 1px solid #1d252d; margin-top: 4px; padding-top: 8px; }
+.hasodds .tname { flex: 1 1 96px; }
+.oblk { flex: none; margin-left: auto; }
+.orow { display: flex; align-items: center; justify-content: flex-end; min-height: 26px; }
+.oc { flex: none; text-align: center; white-space: nowrap; font-size: 13px; color: #e9eef2; margin-left: 6px; }
+.oc.sp { width: 74px; } .oc.tt { width: 78px; } .oc.ml { width: 46px; }
+.otag { flex: none; width: 34px; text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .04em; color: #8b99a6; }
+.oblk.multi .orow { min-height: 22px; }
+.oblk.multi .oc { font-size: 12px; }
+.ohd { display: flex; margin-top: 2px; }
+.ohd .oc { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
+.ocap { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 2px;
+  border-top: 1px solid #1d252d; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
+.omore { color: #46c87f; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 8px 0 8px 12px; }
+.card .odds .ot { margin-top: 2px; }
+@media (max-width: 430px) {
+  .ohd { display: none; }
+  .oc.ml { width: 56px; }
+  .oc.ml::before { content: "ML "; color: #8b99a6; font-size: 10px; }
+}
+/* once the game is under way the lines shrink to a quiet footnote */
+.odds.mini .om { font-size: 11px; line-height: 1.55; }
+.odds.mini .oh { font-size: 9px; }
+
 /* ---- old-WebView fallback: flexbox `gap` only exists in Chrome 84+.
        Android 10 tablets often ship an older System WebView that
        silently ignores it, so everything butts together (tile against
@@ -569,6 +597,7 @@ var state = {
   odds: false,      /* the Odds toggle: download and show today's lines */
   allBooks: false,  /* odds: show every book (off = Pinnacle's line, another book only where Pinnacle has none) */
   osrc: {},         /* odds source id -> false when switched off (missing = on) */
+  more: {},         /* game id -> its "More books" table is open (in memory only) */
   osheet: false,    /* the Odds sources sheet is open */
   sheet: false,     /* add / remove leagues sheet is open */
   live: false, syncing: false, errors: [],
@@ -966,8 +995,10 @@ function runSync(pairs, silent) {
       return fetchLeagueDate(p.lg, p.ds)
         .then(function (games) { save(p.lg.key, p.ds, games); })
         .catch(function (e) {
+          var m = String((e && e.message) || e || '');
+          if (netLike(m)) return;              /* offline / unreachable: stay quiet, keep the cache */
           fails[p.lg.label] = 1;
-          if (!firstDetail) firstDetail = String((e && e.message) || e || '');
+          if (!firstDetail) firstDetail = m;
         });
     };
   });
@@ -1144,6 +1175,11 @@ function loadPrefs() {
      successful download. Once a game starts its lines are frozen: they are the
      lines the spread and total results are judged against. */
 var OD = { busy: false, err: '' };
+/* a failure that just means "no connection right now": never shown as an error -- the header
+   already says how old the saved data is */
+function netLike(msg) {
+  return /failed to fetch|networkerror|network request|load failed|abort|timed? ?out|unknownhost|connectexception|sockettimeout|unresolved|unable to resolve|no route|unreachable|ssl|http 50[234]|relay error/i.test(String(msg || ''));
+}
 var MINUS = '−';
 var MAX_BOOKS = 12;                         /* books kept per game */
 var KEYED_REFRESH_MS = 15 * 60 * 1000;
@@ -1702,7 +1738,8 @@ function oddsSync(force) {
   var jobs = work.map(function (w) {
     return function () {
       return oddsTask(w, ds).catch(function (e) {
-        fails[sourceLabel(w.id)] = String((e && e.message) || e || '');
+        var m = String((e && e.message) || e || '');
+        if (!netLike(m)) fails[sourceLabel(w.id)] = m;
       });
     };
   });
@@ -1759,7 +1796,7 @@ function partTime(it, which) { return which === 'full' ? (it.b.ft || 0) : (it.b.
 function ageTag(t, g, late) {
   if (g.state !== 'pre') return '<span class="oage">' + (late ? 'in-game line' : 'closing lines') + '</span>';
   if (!t) return '';
-  var stale = Date.now() - t > ODDS_FRESH_MS;
+  var stale = navigator.onLine && Date.now() - t > ODDS_FRESH_MS;   /* offline, an old line is just old: show its age, no warning */
   return '<span class="oage' + (stale ? ' stale' : '') + '">' + (stale ? 'stale · ' : '') + ago(t) + '</span>';
 }
 function spreadTxt(g, p, withPrice) {
@@ -1827,7 +1864,7 @@ function allGrid(g, lg, list) {
       if (!any) { rows += '<tr class="olab"><td colspan="' + cols + '">' + spec[i][1] + '</td></tr>'; any = true; }
       t = partTime(it, spec[i][0]);
       if (t > newest) newest = t;
-      var stale = g.state === 'pre' && t && Date.now() - t > ODDS_FRESH_MS;
+      var stale = g.state === 'pre' && t && navigator.onLine && Date.now() - t > ODDS_FRESH_MS;
       rows += '<tr><td>' + esc(it.b.n) + '<span class="bage' + (stale ? ' stale' : '') + '">' + (t ? ago(t) : '') + '</span></td>' +
         '<td class="num">' + spreadTxt(g, p, true) + '</td>' +
         '<td class="num">' + (p.tot ? p.tot.p + ' ' + fmtPrice(p.tot.o) + '/' + fmtPrice(p.tot.u) : '–') + '</td>' +
@@ -1880,7 +1917,7 @@ function oddsMini(g, lg, list) {
   if (lg.seg) spec.push(['seg', segShort(lg), segA, segH, segDone]);
   var names = {}, nn = 0, s, n;
   for (s = 0; s < spec.length; s++) {
-    var picks = state.allBooks ? list : [defaultPart(list, spec[s][0])];
+    var picks = state.allBooks ? topBooks(list, 3, spec[s][0]) : [defaultPart(list, spec[s][0])];
     for (i = 0; i < picks.length; i++) {
       it = picks[i];
       if (!it || !it.b[spec[s][0]]) continue;
@@ -1892,14 +1929,72 @@ function oddsMini(g, lg, list) {
   if (!out) return '';
   return '<div class="odds mini"><div class="oh"><span class="ob">Odds</span>' + ageTag(0, g, late) + '</div>' + out + '</div>';
 }
-function oddsHTML(g, lg, e, isDay) {
-  if (!state.odds || g.flag === 'Postponed' || g.flag === 'Canceled') return '';
+
+/* ----- pre-game: the lines sit to the right of each team, away on top, home below ----- */
+var OD_MAJOR = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'espnbet', 'betrivers', 'hardrock', 'fanatics', 'bovada'];
+var BOOK_TAG = { pinnacle: 'PIN', draftkings: 'DK', fanduel: 'FD', betmgm: 'MGM', caesars: 'CZR', espnbet: 'ESPN',
+  betrivers: 'BR', hardrock: 'HR', fanatics: 'FAN', bovada: 'BOV', betonlineag: 'BOL', mybookieag: 'MYB', lowvig: 'LV', unibet: 'UNI' };
+function bookTag(k, n) { return BOOK_TAG[k] || String(n || k).slice(0, 4).toUpperCase(); }
+/* up to n books that carry the part: fresh lines first, then the big consumer brands in a fixed order, Pinnacle last */
+function topBooks(list, n, part) {
+  var c = [], i, mi, it, ft;
+  for (i = 0; i < list.length; i++) {
+    it = list[i];
+    if (!it.b[part || 'full']) continue;
+    ft = partTime(it, part || 'full');
+    mi = OD_MAJOR.indexOf(it.k);
+    c.push({ it: it, sc: (ft && Date.now() - ft <= ODDS_FRESH_MS ? 0 : 100) + (mi >= 0 ? mi : (it.k === 'pinnacle' ? 60 : 30 + bookRank(it.k))) });
+  }
+  c.sort(function (x, y) { return x.sc - y.sc; });
+  var out = [];
+  for (i = 0; i < c.length && i < n; i++) { out.push(c[i].it); }
+  out.sort(function (x, y) { return bookRank(x.k) - bookRank(y.k); });
+  return out;
+}
+function oddsCells(p, side, showMl) {
+  var sp = '–', tt = '–', ml = '–';
+  if (p.sp) sp = side === 'a' ? fmtPts(-p.sp.h) + ' ' + fmtPrice(p.sp.ap) : fmtPts(p.sp.h) + ' ' + fmtPrice(p.sp.hp);
+  if (p.tot) tt = (side === 'a' ? 'O ' : 'U ') + p.tot.p + ' ' + fmtPrice(side === 'a' ? p.tot.o : p.tot.u);
+  if (p.ml) ml = fmtPrice(side === 'a' ? p.ml.a : p.ml.h);
+  return '<span class="oc sp num">' + sp + '</span><span class="oc tt num">' + tt + '</span>' + (showMl ? '<span class="oc ml num">' + ml + '</span>' : '');
+}
+function oddsBlock(picks, side, showMl, multi) {
+  var out = '', i;
+  for (i = 0; i < picks.length; i++) {
+    out += '<div class="orow">' + (multi ? '<span class="otag">' + esc(bookTag(picks[i].k, picks[i].b.n)) + '</span>' : '') + oddsCells(picks[i].b.full, side, showMl) + '</div>';
+  }
+  return '<div class="oblk' + (multi ? ' multi' : '') + '">' + out + '</div>';
+}
+/* { head, away, home, below } -- head/away/home go inside the team rows, below goes under the card's teams */
+function oddsParts(g, lg, e, isDay) {
+  var res = { head: '', away: '', home: '', below: '' };
+  if (!state.odds || g.flag === 'Postponed' || g.flag === 'Canceled') return res;
   var list = e ? visibleBooks(normEntry(e)) : [];
   if (!list.length) {
-    return (g.state === 'pre' && isDay) ? '<div class="odds none">Odds not posted yet</div>' : '';
+    if (g.state === 'pre' && isDay) res.below = '<div class="odds none">Odds not posted yet</div>';
+    return res;
   }
-  if (g.state !== 'pre') return oddsMini(g, lg, list);
-  return state.allBooks ? allGrid(g, lg, list) : defGrid(g, lg, list);
+  if (g.state !== 'pre') { res.below = oddsMini(g, lg, list); return res; }
+  var picks = state.allBooks ? topBooks(list, 3, 'full') : [defaultPart(list, 'full')], i, newest = 0, t, showMl = false, multi;
+  picks = picks.filter(function (x) { return x && x.b.full; });
+  for (i = 0; i < picks.length; i++) {
+    t = partTime(picks[i], 'full');
+    if (t > newest) newest = t;
+    if (picks[i].b.full.ml) showMl = true;
+  }
+  multi = picks.length > 1;
+  if (picks.length) {
+    res.head = '<div class="ohd"><div class="oblk' + (multi ? ' multi' : '') + '"><div class="orow">' + (multi ? '<span class="otag"></span>' : '') +
+      '<span class="oc sp">Spread</span><span class="oc tt">Total</span>' + (showMl ? '<span class="oc ml">Money</span>' : '') + '</div></div></div>';
+    res.away = oddsBlock(picks, 'a', showMl, multi);
+    res.home = oddsBlock(picks, 'h', showMl, multi);
+  }
+  var open = !!state.more[g.id], who = '';
+  if (picks.length === 1 && !state.allBooks) who = ' · ' + esc(picks[0].b.n);
+  res.below = '<div class="ocap"><span class="oage-l">' + (picks.length ? 'Odds' + who + ' · ' + ageTag(newest, g, false) : 'No full-game line yet') + '</span>' +
+    '<button class="omore" data-more="' + esc(g.id) + '" aria-expanded="' + open + '">' + (open ? 'Fewer books ▴' : 'More books ▾') + '</button></div>' +
+    (open ? allGrid(g, lg, list) : '');
+  return res;
 }
 
 /* ----- the Odds sources sheet: which sources are on, and their API keys ----- */
@@ -1921,7 +2016,7 @@ function keyStatusHTML(src) {
 function renderOSheet() {
   var html = '', i, s, on;
   html += '<button class="lrow' + (state.allBooks ? ' on' : '') + '" data-act="all" role="switch" aria-checked="' + state.allBooks + '">' +
-    '<span class="ltxt"><span class="ln">Show every book</span><span class="ld">Off: Pinnacle’s line on each game (another book only where Pinnacle has none). On: every book from every source.</span></span>' +
+    '<span class="ltxt"><span class="ln">Show every book</span><span class="ld">Off: Pinnacle’s line on each game (another book only where Pinnacle has none). On: the three major books with the freshest lines (DraftKings, FanDuel, BetMGM…) beside each team; tap More books under a game for the rest.</span></span>' +
     '<span class="sw"><i></i></span></button>';
   for (i = 0; i < SOURCES.length; i++) {
     s = SOURCES[i]; on = srcOn(s.id);
@@ -1959,7 +2054,7 @@ function tileHTML(team) {
   var bg = team.color || '#26303a';
   return '<div class="tile" style="background:' + esc(bg) + ';color:' + textOn(team.color) + '">' + esc(team.abbr) + '</div>';
 }
-function rowHTML(team, g, f5val, fbSit) {
+function rowHTML(team, g, f5val, fbSit, oddsBlk) {
   var loser = g.state === 'post' && !team.win && g.away.score !== g.home.score;
   var so = team.so != null ? ' <span class="so num">(' + esc(team.so) + ')</span>' : '';
   var scoreTxt;
@@ -1968,12 +2063,12 @@ function rowHTML(team, g, f5val, fbSit) {
   else scoreTxt = team.score !== '' ? team.score : (g.state === 'in' ? '0' : '\u2013');
   var f5cell = f5val != null ? '<div class="f5col num">' + esc(f5val) + '</div>' : '';
   var ball = fbSit ? '<span class="fbicon" role="img" aria-label="Has the ball">\ud83c\udfc8</span>' : '';
-  return '<div class="trow' + (loser ? ' loser' : '') + '">' +
+  return '<div class="trow' + (loser ? ' loser' : '') + (oddsBlk ? ' hasodds' : '') + '">' +
     tileHTML(team) +
     '<div class="tname"><div class="n">' + ball + esc(team.name) + '</div>' +
     (team.rec ? '<div class="r num">' + esc(team.rec) + '</div>' : '') +
     '</div>' +
-    '<div class="score num' + ((g.state === 'in' && !g.flag) ? ' slive' : '') + '">' + esc(scoreTxt) + so + '</div>' +
+    (oddsBlk ? oddsBlk : '<div class="score num' + ((g.state === 'in' && !g.flag) ? ' slive' : '') + '">' + esc(scoreTxt) + so + '</div>') +
     f5cell +
     '</div>';
 }
@@ -2119,16 +2214,17 @@ function cardHTML(g, lg, opts) {
       '</div>'
     : '';
   var gsum = gsumHTML(g, kind, seg);
+  var od = oddsParts(g, lg, opts.oddsDay && opts.oddsDay.games ? opts.oddsDay.games[g.id] : null, !!opts.isOddsDay);
   return '<div class="card' + (g.state === 'post' ? ' post' : '') + (opts.track ? ' track' : '') + '" data-id="' + esc(g.id) + '">' +
     '<div class="top"><div class="topleft">' + statusHTML(g) + stime + '</div>' + trk + '</div>' +
     atBatHTML(g.sit) +
     fbSitHTML(g) +
     '<div class="mid"><div class="rows">' +
-    f5head +
-    rowHTML(g.away, g, seg ? seg.a : null, g.fb && g.fb.possess === 'away' ? g.fb : null) +
-    rowHTML(g.home, g, seg ? seg.h : null, g.fb && g.fb.possess === 'home' ? g.fb : null) +
+    f5head + od.head +
+    rowHTML(g.away, g, seg ? seg.a : null, g.fb && g.fb.possess === 'away' ? g.fb : null, od.away) +
+    rowHTML(g.home, g, seg ? seg.h : null, g.fb && g.fb.possess === 'home' ? g.fb : null, od.home) +
     '</div>' + gsum + '</div>' +
-    oddsHTML(g, lg, opts.oddsDay && opts.oddsDay.games ? opts.oddsDay.games[g.id] : null, !!opts.isOddsDay) +
+    od.below +
     ((kind === 'soccer' || kind === 'periods') ? '' : lsTable(g, kind, !!opts.track, lg.noSplit)) +
     '</div>';
 }
@@ -2242,7 +2338,6 @@ function renderTrack() {
   var entry = load(lg.key, t.ds);
   var meta = 'Tracking one game';
   if (entry) meta += ' \u00b7 updated ' + ago(entry.t);
-  if (!navigator.onLine) meta += ' \u00b7 offline';
   $('metaLine').textContent = meta;
   $('trackNote').textContent = lg.label + ' \u00b7 refreshes every 5s \u00b7 other games paused';
   var banner = $('banner');
@@ -2274,14 +2369,14 @@ function render() {
   $('oddsBtn').className = 'mbtn' + (state.odds ? ' on' : '');
   $('allBtn').style.display = state.odds ? '' : 'none';
   $('allBtn').className = 'mbtn' + (state.allBooks ? ' on' : '');
-  $('allBtn').textContent = state.allBooks ? 'All books' : 'Pinnacle only';
+  $('allBtn').textContent = state.allBooks ? 'Top 3 books' : 'Pinnacle only';
   $('oddsBtn').textContent = state.odds ? 'Odds on' : 'Odds off';
   $('oddsBtn').setAttribute('aria-pressed', state.odds ? 'true' : 'false');
   var entry = load(lg.key, ds);
   var oddsDay = state.odds ? loadOdds(lg.key, ds) : null;
   var meta = state.live ? 'Live sync on \u00b7 ' : '';
   if (state.syncing && !state.live) meta += 'Syncing\u2026';
-  else if (entry) meta += 'Synced ' + ago(entry.t) + (navigator.onLine ? '' : ' \u00b7 offline');
+  else if (entry) meta += 'Updated ' + ago(entry.t);
   else meta += navigator.onLine ? 'Not synced yet' : 'Offline \u00b7 nothing cached for this day';
   if (state.odds) {
     if (!lg.pin) meta += ' \u00b7 no odds for ' + lg.label;
@@ -2293,7 +2388,8 @@ function render() {
   $('metaLine').textContent = meta;
 
   var banner = $('banner');
-  if (state.errors.length) { banner.textContent = state.errors[0]; banner.className = 'show'; }
+  if (!navigator.onLine) { banner.textContent = ''; banner.className = ''; }
+  else if (state.errors.length) { banner.textContent = state.errors[0]; banner.className = 'show'; }
   else if (state.odds && OD.err) { banner.textContent = OD.err; banner.className = 'show'; }
   else { banner.textContent = ''; banner.className = ''; }
 
@@ -2338,6 +2434,8 @@ window.addEventListener('popstate', function () {
   if (state.osheet) { oSheetPushed = false; closeOSheet(); }
 });
 $('games').addEventListener('click', function (e) {
+  var mb = e.target && e.target.closest ? e.target.closest('.omore') : null;
+  if (mb) { var gid = mb.getAttribute('data-more'); state.more[gid] = !state.more[gid]; render(); return; }
   var b = e.target && e.target.closest ? e.target.closest('.trk') : null;
   if (!b) return;
   setTrack({ lgKey: state.league, ds: ymd(state.date), id: b.getAttribute('data-track') });
