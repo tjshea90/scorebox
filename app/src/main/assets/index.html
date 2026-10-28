@@ -376,29 +376,33 @@ body.tracking .mbtn { display: none; }
 .kst { font-size: 12px; color: #8b99a6; margin-top: 5px; }
 .kst .good { color: #46c87f; } .kst .warn { color: #ffb424; } .kst .bad { color: #ff7a72; }
 
-/* pre-game: the lines sit to the right of each team (away on top, home below).
-   A team whose lines do not fit beside its name drops them onto a line of
-   their own right under it, so the card grows taller instead of squeezing. */
-.trow.hasodds { flex-wrap: wrap; }
-.trow.hasodds + .trow.hasodds { border-top: 1px solid #1d252d; margin-top: 4px; padding-top: 8px; }
-.hasodds .tname { flex: 1 1 96px; }
-.oblk { flex: none; margin-left: auto; }
-.orow { display: flex; align-items: center; justify-content: flex-end; min-height: 26px; }
-.oc { flex: none; text-align: center; white-space: nowrap; font-size: 13px; color: #e9eef2; margin-left: 6px; }
-.oc.sp { width: 74px; } .oc.tt { width: 78px; } .oc.ml { width: 46px; }
-.otag { flex: none; width: 34px; text-align: left; font-size: 10px; font-weight: 800; letter-spacing: .04em; color: #8b99a6; }
-.oblk.multi .orow { min-height: 22px; }
-.oblk.multi .oc { font-size: 12px; }
-.ohd { display: flex; margin-top: 2px; }
-.ohd .oc { font-size: 9px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
+/* pre-game: a sportsbook-style board -- away team over home team, Spread / Total / Money
+   buttons to the right (line on top, price under it, plus prices in green).  With
+   several books a chip row picks which book the board shows. */
+.hasodds .tname { flex: 1 1 0; min-width: 0; }
+.hasodds .tile { width: 34px; height: 34px; font-size: 11px; }
+.trow.hasodds + .trow.hasodds { margin-top: 2px; }
+.obtns { flex: none; display: flex; }
+.ob2 { flex: none; width: 60px; margin-left: 5px; border-radius: 7px; background: #212a32; padding: 5px 0 4px;
+  text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 44px; }
+.ob2.ml { width: 58px; }
+.obt { font-size: 12px; font-weight: 700; color: #e9eef2; line-height: 1.25; white-space: nowrap; }
+.obp { font-size: 14px; font-weight: 800; color: #e9eef2; line-height: 1.25; white-space: nowrap; }
+.obp.pos { color: #46c87f; }
+.ohd { display: flex; justify-content: flex-end; margin-top: 4px; }
+.ohd .ob2 { background: none; min-height: 0; padding: 0 0 2px; font-size: 10px; font-weight: 700;
+  letter-spacing: .06em; text-transform: uppercase; color: #8b99a6; }
+.bchips { display: flex; flex-wrap: wrap; align-items: center; margin: 2px 0 4px; }
+.bchip { min-height: 32px; padding: 0 11px; margin: 0 6px 6px 0; border-radius: 999px; border: 1px solid #26303a;
+  color: #8b99a6; font-size: 12px; font-weight: 800; }
+.bchip.on { border-color: #46c87f; color: #46c87f; background: rgba(70,200,127,.1); }
+.bsep { width: 1px; height: 18px; background: #26303a; margin: 0 8px 6px 2px; }
 .ocap { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 2px;
   border-top: 1px solid #1d252d; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
 .omore { color: #46c87f; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 8px 0 8px 12px; }
-.card .odds .ot { margin-top: 2px; }
-@media (max-width: 430px) {
-  .ohd { display: none; }
-  .oc.ml { width: 56px; }
-  .oc.ml::before { content: "ML "; color: #8b99a6; font-size: 10px; }
+@media (max-width: 400px) {
+  .ob2 { width: 54px; margin-left: 4px; } .ob2.ml { width: 52px; }
+  .obt { font-size: 11px; } .obp { font-size: 13px; }
 }
 /* once the game is under way the lines shrink to a quiet footnote */
 .odds.mini .om { font-size: 11px; line-height: 1.55; }
@@ -597,6 +601,8 @@ var state = {
   odds: false,      /* the Odds toggle: download and show today's lines */
   allBooks: false,  /* odds: show every book (off = Pinnacle's line, another book only where Pinnacle has none) */
   osrc: {},         /* odds source id -> false when switched off (missing = on) */
+  bk: {},           /* game id -> the book picked in its chip row (in memory only) */
+  part: {},         /* game id -> 'seg' while its half / first-5 line is showing */
   more: {},         /* game id -> its "More books" table is open (in memory only) */
   osheet: false,    /* the Odds sources sheet is open */
   sheet: false,     /* add / remove leagues sheet is open */
@@ -1825,57 +1831,6 @@ function partRows(g, p, showMl) {
   return '<tr><td>' + a + '</td><td class="num">' + sp('a') + '</td><td class="num">' + tt('a') + '</td>' + (showMl ? '<td class="num">' + ml('a') + '</td>' : '') + '</tr>' +
     '<tr><td>' + h + '</td><td class="num">' + sp('h') + '</td><td class="num">' + tt('h') + '</td>' + (showMl ? '<td class="num">' + ml('h') + '</td>' : '') + '</tr>';
 }
-/* before the game, default: one two-line grid per part, from Pinnacle where it has the part */
-function defGrid(g, lg, list) {
-  var spec = [['full', 'Full game']], parts = [], names = {}, nn = 0, newest = 0, showMl = false, i, it, p, t, html;
-  if (lg.seg) spec.push(['seg', segName(lg)]);
-  for (i = 0; i < spec.length; i++) {
-    it = defaultPart(list, spec[i][0]);
-    if (!it) continue;
-    p = it.b[spec[i][0]];
-    parts.push({ lab: spec[i][1], p: p, bn: it.b.n });
-    if (!names[it.b.n]) { names[it.b.n] = 1; nn++; }
-    t = partTime(it, spec[i][0]);
-    if (t > newest) newest = t;
-    if (p.ml) showMl = true;
-  }
-  var cols = showMl ? 4 : 3, one = '';
-  if (nn === 1) { for (t in names) { one = ' · ' + esc(t); } }
-  html = '<div class="odds"><div class="oh"><span class="ob">Odds' + one + '</span>' + ageTag(newest, g, false) + '</div>' +
-    '<table class="ot"><tr><th></th><th>Spread</th><th>Total</th>' + (showMl ? '<th>Money</th>' : '') + '</tr>';
-  for (i = 0; i < parts.length; i++) {
-    html += '<tr class="olab"><td colspan="' + cols + '">' + parts[i].lab + (nn > 1 ? ' · ' + esc(parts[i].bn) : '') + '</td></tr>' + partRows(g, parts[i].p, showMl);
-  }
-  if (lg.seg && !defaultPart(list, 'seg')) html += '<tr class="olab"><td colspan="' + cols + '">' + segName(lg) + ' · not posted yet</td></tr>';
-  return html + '</table></div>';
-}
-/* before the game, every book: one row per book for each part of the game */
-function allGrid(g, lg, list) {
-  var spec = [['full', 'Full game']], i, j, showMl = false, newest = 0, html, it, p, t, rows = '';
-  if (lg.seg) spec.push(['seg', segName(lg)]);
-  for (i = 0; i < list.length; i++) { if ((list[i].b.full && list[i].b.full.ml) || (list[i].b.seg && list[i].b.seg.ml)) showMl = true; }
-  var cols = showMl ? 4 : 3;
-  for (i = 0; i < spec.length; i++) {
-    var any = false;
-    for (j = 0; j < list.length; j++) {
-      it = list[j];
-      p = it.b[spec[i][0]];
-      if (!p) continue;
-      if (!any) { rows += '<tr class="olab"><td colspan="' + cols + '">' + spec[i][1] + '</td></tr>'; any = true; }
-      t = partTime(it, spec[i][0]);
-      if (t > newest) newest = t;
-      var stale = g.state === 'pre' && t && navigator.onLine && Date.now() - t > ODDS_FRESH_MS;
-      rows += '<tr><td>' + esc(it.b.n) + '<span class="bage' + (stale ? ' stale' : '') + '">' + (t ? ago(t) : '') + '</span></td>' +
-        '<td class="num">' + spreadTxt(g, p, true) + '</td>' +
-        '<td class="num">' + (p.tot ? p.tot.p + ' ' + fmtPrice(p.tot.o) + '/' + fmtPrice(p.tot.u) : '–') + '</td>' +
-        (showMl ? '<td class="num">' + mlTxt(g, p, true) + '</td>' : '') + '</tr>';
-    }
-    if (!any && lg.seg && spec[i][0] === 'seg') rows += '<tr class="olab"><td colspan="' + cols + '">' + spec[i][1] + ' · not posted yet</td></tr>';
-  }
-  html = '<div class="odds"><div class="oh"><span class="ob">Odds · ' + list.length + (list.length === 1 ? ' book' : ' books') + '</span>' + ageTag(newest, g, false) + '</div>' +
-    '<table class="ot all"><tr><th></th><th>Spread</th><th>Total o/u</th>' + (showMl ? '<th>Money</th>' : '') + '</tr>' + rows + '</table></div>';
-  return html;
-}
 /* who covered / over-under, once the scores for that segment are in */
 function spreadResult(p, a, h) {
   if (!p.sp || a == null || h == null) return null;
@@ -1951,23 +1906,30 @@ function topBooks(list, n, part) {
   out.sort(function (x, y) { return bookRank(x.k) - bookRank(y.k); });
   return out;
 }
+function pcls(p) { return p > 0 ? ' pos' : ''; }
+/* one sportsbook-style bet button: the line on top, its price under it */
+function betBtn(cls, top, price) {
+  return '<span class="ob2 ' + cls + '">' + (top === '' ? '' : '<span class="obt">' + top + '</span>') +
+    '<span class="obp' + pcls(price) + '">' + (price == null ? '–' : fmtPrice(price)) + '</span></span>';
+}
 function oddsCells(p, side, showMl) {
-  var sp = '–', tt = '–', ml = '–';
-  if (p.sp) sp = side === 'a' ? fmtPts(-p.sp.h) + ' ' + fmtPrice(p.sp.ap) : fmtPts(p.sp.h) + ' ' + fmtPrice(p.sp.hp);
-  if (p.tot) tt = (side === 'a' ? 'O ' : 'U ') + p.tot.p + ' ' + fmtPrice(side === 'a' ? p.tot.o : p.tot.u);
-  if (p.ml) ml = fmtPrice(side === 'a' ? p.ml.a : p.ml.h);
-  return '<span class="oc sp num">' + sp + '</span><span class="oc tt num">' + tt + '</span>' + (showMl ? '<span class="oc ml num">' + ml + '</span>' : '');
+  var a = side === 'a', sp, tt, ml = '';
+  sp = p.sp ? betBtn('sp', fmtPts(a ? -p.sp.h : p.sp.h), a ? p.sp.ap : p.sp.hp) : betBtn('sp', '', null);
+  tt = p.tot ? betBtn('tt', (a ? 'O ' : 'U ') + p.tot.p, a ? p.tot.o : p.tot.u) : betBtn('tt', '', null);
+  if (showMl) ml = betBtn('ml', '', p.ml ? (a ? p.ml.a : p.ml.h) : null);
+  return '<div class="obtns">' + sp + tt + ml + '</div>';
 }
-function oddsBlock(picks, side, showMl, multi) {
+function chipsHTML(gid, items, sel, attr) {
   var out = '', i;
-  for (i = 0; i < picks.length; i++) {
-    out += '<div class="orow">' + (multi ? '<span class="otag">' + esc(bookTag(picks[i].k, picks[i].b.n)) + '</span>' : '') + oddsCells(picks[i].b.full, side, showMl) + '</div>';
+  for (i = 0; i < items.length; i++) {
+    out += '<button class="bchip' + (items[i].k === sel ? ' on' : '') + '" ' + attr + '="' + esc(gid) + '|' + esc(items[i].k) + '">' + esc(items[i].n) + '</button>';
   }
-  return '<div class="oblk' + (multi ? ' multi' : '') + '">' + out + '</div>';
+  return out;
 }
-/* { head, away, home, below } -- head/away/home go inside the team rows, below goes under the card's teams */
+/* { head, away, home, below } -- head/away/home go inside the card's team rows (sportsbook layout:
+   away over home, Spread / Total / Money buttons to the right); below goes under the teams */
 function oddsParts(g, lg, e, isDay) {
-  var res = { head: '', away: '', home: '', below: '' };
+  var res = { top: '', head: '', away: '', home: '', below: '' };
   if (!state.odds || g.flag === 'Postponed' || g.flag === 'Canceled') return res;
   var list = e ? visibleBooks(normEntry(e)) : [];
   if (!list.length) {
@@ -1975,25 +1937,32 @@ function oddsParts(g, lg, e, isDay) {
     return res;
   }
   if (g.state !== 'pre') { res.below = oddsMini(g, lg, list); return res; }
-  var picks = state.allBooks ? topBooks(list, 3, 'full') : [defaultPart(list, 'full')], i, newest = 0, t, showMl = false, multi;
-  picks = picks.filter(function (x) { return x && x.b.full; });
-  for (i = 0; i < picks.length; i++) {
-    t = partTime(picks[i], 'full');
-    if (t > newest) newest = t;
-    if (picks[i].b.full.ml) showMl = true;
+  var gid = g.id, more = !!state.more[gid], i, pool = [], chips = [], sel = null, want = state.bk[gid], it, seen = {};
+  for (i = 0; i < list.length; i++) { if (list[i].b.full || (lg.seg && list[i].b.seg)) pool.push(list[i]); }
+  if (!pool.length) return res;
+  if (state.allBooks || more) {
+    var top = topBooks(list, 3, 'full');
+    for (i = 0; i < top.length; i++) { chips.push(top[i]); seen[top[i].k] = 1; }
+    if (more) for (i = 0; i < pool.length; i++) { if (!seen[pool[i].k]) chips.push(pool[i]); }
   }
-  multi = picks.length > 1;
-  if (picks.length) {
-    res.head = '<div class="ohd"><div class="oblk' + (multi ? ' multi' : '') + '"><div class="orow">' + (multi ? '<span class="otag"></span>' : '') +
-      '<span class="oc sp">Spread</span><span class="oc tt">Total</span>' + (showMl ? '<span class="oc ml">Money</span>' : '') + '</div></div></div>';
-    res.away = oddsBlock(picks, 'a', showMl, multi);
-    res.home = oddsBlock(picks, 'h', showMl, multi);
+  var src = chips.length ? chips : pool;
+  for (i = 0; i < src.length; i++) { if (src[i].k === want) sel = src[i]; }
+  if (!sel) sel = chips.length ? chips[0] : (defaultPart(list, 'full') || pool[0]);
+  var part = state.part[gid] === 'seg' && lg.seg && sel.b.seg ? 'seg' : (sel.b.full ? 'full' : 'seg');
+  var p = sel.b[part], showMl = !!p.ml, t = partTime(sel, part);
+  var chipRow = '';
+  if (chips.length) {
+    chipRow = chipsHTML(gid, chips.map(function (x) { return { k: x.k, n: x.b.n }; }), sel.k, 'data-bk');
   }
-  var open = !!state.more[g.id], who = '';
-  if (picks.length === 1 && !state.allBooks) who = ' · ' + esc(picks[0].b.n);
-  res.below = '<div class="ocap"><span class="oage-l">' + (picks.length ? 'Odds' + who + ' · ' + ageTag(newest, g, false) : 'No full-game line yet') + '</span>' +
-    '<button class="omore" data-more="' + esc(g.id) + '" aria-expanded="' + open + '">' + (open ? 'Fewer books ▴' : 'More books ▾') + '</button></div>' +
-    (open ? allGrid(g, lg, list) : '');
+  if (lg.seg && sel.b.full && sel.b.seg) {
+    chipRow += '<span class="bsep"></span>' + chipsHTML(gid, [{ k: 'full', n: 'Game' }, { k: 'seg', n: segShort(lg) }], part, 'data-part');
+  }
+  if (chipRow) res.top = '<div class="bchips">' + chipRow + '</div>';
+  res.head = '<div class="ohd"><div class="obtns"><span class="ob2 sp">Spread</span><span class="ob2 tt">Total</span>' + (showMl ? '<span class="ob2 ml">Money</span>' : '') + '</div></div>';
+  res.away = oddsCells(p, 'a', showMl);
+  res.home = oddsCells(p, 'h', showMl);
+  res.below = '<div class="ocap"><span>' + (part === 'seg' ? segName(lg) + ' · ' : '') + esc(sel.b.n) + (t ? ' · ' + ageTag(t, g, false) : '') + '</span>' +
+    '<button class="omore" data-more="' + esc(gid) + '" aria-expanded="' + more + '">' + (more ? 'Fewer books ▴' : 'More books ▾') + '</button></div>';
   return res;
 }
 
@@ -2016,7 +1985,7 @@ function keyStatusHTML(src) {
 function renderOSheet() {
   var html = '', i, s, on;
   html += '<button class="lrow' + (state.allBooks ? ' on' : '') + '" data-act="all" role="switch" aria-checked="' + state.allBooks + '">' +
-    '<span class="ltxt"><span class="ln">Show every book</span><span class="ld">Off: Pinnacle’s line on each game (another book only where Pinnacle has none). On: the three major books with the freshest lines (DraftKings, FanDuel, BetMGM…) beside each team; tap More books under a game for the rest.</span></span>' +
+    '<span class="ltxt"><span class="ln">Show every book</span><span class="ld">Off: Pinnacle’s line on each game (another book only where Pinnacle has none). On: a row of tabs for the three major books with the freshest lines (DraftKings, FanDuel, BetMGM…) — tap one to see its board; More books under a game adds the rest.</span></span>' +
     '<span class="sw"><i></i></span></button>';
   for (i = 0; i < SOURCES.length; i++) {
     s = SOURCES[i]; on = srcOn(s.id);
@@ -2220,7 +2189,7 @@ function cardHTML(g, lg, opts) {
     atBatHTML(g.sit) +
     fbSitHTML(g) +
     '<div class="mid"><div class="rows">' +
-    f5head + od.head +
+    od.top + f5head + od.head +
     rowHTML(g.away, g, seg ? seg.a : null, g.fb && g.fb.possess === 'away' ? g.fb : null, od.away) +
     rowHTML(g.home, g, seg ? seg.h : null, g.fb && g.fb.possess === 'home' ? g.fb : null, od.home) +
     '</div>' + gsum + '</div>' +
@@ -2434,6 +2403,12 @@ window.addEventListener('popstate', function () {
   if (state.osheet) { oSheetPushed = false; closeOSheet(); }
 });
 $('games').addEventListener('click', function (e) {
+  var ch = e.target && e.target.closest ? e.target.closest('.bchip') : null;
+  if (ch) {
+    var bits = (ch.getAttribute('data-bk') || ch.getAttribute('data-part')).split('|');
+    if (ch.hasAttribute('data-bk')) state.bk[bits[0]] = bits[1]; else state.part[bits[0]] = bits[1];
+    render(); return;
+  }
   var mb = e.target && e.target.closest ? e.target.closest('.omore') : null;
   if (mb) { var gid = mb.getAttribute('data-more'); state.more[gid] = !state.more[gid]; render(); return; }
   var b = e.target && e.target.closest ? e.target.closest('.trk') : null;
