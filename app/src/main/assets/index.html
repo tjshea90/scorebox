@@ -330,6 +330,7 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
    biggest thing on the card, and the cover / over-under badges appear
    when the half (or first 5) and the final are in. */
 .meta { flex-wrap: wrap; }
+#topbar header { position: relative; z-index: 2; }
 .mbtn {
   flex: none; min-height: 32px; padding: 0 11px; border-radius: 8px;
   border: 1px solid #26303a; color: #8b99a6; font-weight: 800; font-size: 11px;
@@ -338,6 +339,30 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
 #srcBtn { margin-left: auto; }
 .mbtn.on { border-color: #46c87f; color: #46c87f; background: rgba(70,200,127,.08); }
 body.tracking .mbtn { display: none; }
+/* master odds controls: Full game / Halftime switch + sportsbook picker */
+#mrow { display: none; align-items: center; gap: 8px; margin-top: 8px; }
+body.hasodds #mrow { display: flex; }
+body.tracking #mrow, body.tracking #bookMenu { display: none !important; }
+#perSeg { display: flex; flex: none; border: 1px solid #26303a; border-radius: 8px; overflow: hidden; }
+#perSeg button { min-height: 34px; padding: 0 12px; font-size: 11px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: #8b99a6; }
+#perSeg button.on { background: rgba(255,180,36,.16); color: #ffb424; }
+#bookBtn { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  text-transform: none; letter-spacing: 0; font-size: 12px; min-height: 34px; }
+#bookMenu { display: none; position: absolute; left: 14px; right: 14px; top: 100%; max-height: 60vh; overflow-y: auto;
+  background: #141b22; border: 1px solid #26303a; border-radius: 10px; padding: 6px; box-shadow: 0 10px 30px rgba(0,0,0,.6); }
+#bookMenu.show { display: block; }
+#bookMenu .bmh { font-size: 11px; color: #8b99a6; padding: 4px 8px 6px; }
+#bookMenu .bmi { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 8px;
+  border-radius: 8px; color: #e9eef2; font-size: 14px; text-align: left; }
+#bookMenu .bmi:active { background: #1d252d; }
+#bookMenu .bmi .bx { flex: none; width: 20px; height: 20px; border-radius: 5px; border: 2px solid #3a4651; }
+#bookMenu .bmi.on .bx { background: #46c87f; border-color: #46c87f; box-shadow: inset 0 0 0 3px #141b22; }
+#bookMenu .bmi .bc { margin-left: auto; font-size: 11px; color: #5d6a76; }
+.meta { min-height: 16px; }
+#metaLine { font-variant-numeric: tabular-nums; flex: 1 1 0; min-width: 0; }
+body.hasodds #metaLine { min-height: 32px; }
+.mbtns { flex: 1 0 100%; display: flex; align-items: center; gap: 6px; }
 .odds { margin-top: 10px; padding-top: 8px; border-top: 1px solid #1d252d; }
 .odds.none { color: #5d6a76; font-size: 12px; border-top: 0; padding-top: 0; }
 .oh { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;
@@ -458,7 +483,9 @@ body.tracking .mbtn { display: none; }
     <button id="liveBtn"><span class="ldot"></span>Live sync</button>
     <button id="syncBtn">Sync all</button>
   </div>
-  <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span><span id="buildTag"></span><button id="srcBtn" class="mbtn">Sources</button><button id="allBtn" class="mbtn" style="display:none">All books</button><button id="oddsBtn" class="mbtn" aria-pressed="false">Odds off</button></div>
+  <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span><span id="buildTag"></span><div class="mbtns"><button id="srcBtn" class="mbtn">Sources</button><button id="allBtn" class="mbtn" style="display:none">All books</button><button id="oddsBtn" class="mbtn" aria-pressed="false">Odds off</button></div></div>
+  <div id="mrow"><div id="perSeg" role="group" aria-label="Odds period"><button data-per="full">Full game</button><button data-per="seg">Halftime</button></div><button id="bookBtn" class="mbtn" aria-haspopup="listbox" aria-expanded="false">Books</button></div>
+  <div id="bookMenu" role="listbox" aria-multiselectable="true"></div>
 </header>
 
 <div id="pull"><span class="pdot"></span><span id="pullLabel">Pull to refresh</span></div>
@@ -600,6 +627,8 @@ var state = {
   on: {},           /* leagueKey -> 1 for every league shown as a tab and synced */
   odds: false,      /* the Odds toggle: download and show today's lines */
   allBooks: false,  /* odds: show every book (off = Pinnacle's line, another book only where Pinnacle has none) */
+  period: 'full',   /* MASTER odds period: 'full' game or 'seg' (halftime / first 5 innings) for every sport */
+  books: [],        /* MASTER book picks (empty = auto: Pinnacle first, as before) */
   osrc: {},         /* odds source id -> false when switched off (missing = on) */
   bk: {},           /* game id -> the book picked in its chip row (in memory only) */
   part: {},         /* game id -> 'seg' while its half / first-5 line is showing */
@@ -1141,7 +1170,7 @@ function setTrack(t) {
 function savePrefs() {
   var keys = [], act = activeLeagues(), i;
   for (i = 0; i < act.length; i++) { keys.push(act[i].key); }
-  store.set(PFX + 'prefs', { league: state.league, leagues: keys, odds: !!state.odds, allBooks: !!state.allBooks, osrc: state.osrc });
+  store.set(PFX + 'prefs', { league: state.league, leagues: keys, odds: !!state.odds, allBooks: !!state.allBooks, period: state.period, books: state.books, osrc: state.osrc });
 }
 function loadPrefs() {
   var p = store.get(PFX + 'prefs') || {}, i, any = false;
@@ -1157,6 +1186,8 @@ function loadPrefs() {
   state.league = (p.league && state.on[p.league]) ? p.league : activeLeagues()[0].key;
   state.odds = p.odds === true;
   state.allBooks = p.allBooks === true;
+  state.period = p.period === 'seg' ? 'seg' : 'full';
+  state.books = (p.books instanceof Array) ? p.books.filter(function (x) { return typeof x === 'string'; }) : [];
   state.osrc = (p.osrc && typeof p.osrc === 'object') ? p.osrc : {};
 }
 
@@ -1738,7 +1769,7 @@ function oddsSync(force) {
   if (changed) render();
   if (!work.length && !Object.keys(notes).length) return;
   if (OD.busy) return;
-  OD.busy = true; OD.err = '';
+  OD.busy = true; OD.err = ''; OD.force = !!force;
   var fails = {};
   for (k in notes) { fails[sourceLabel(k)] = notes[k]; }
   var jobs = work.map(function (w) {
@@ -1769,6 +1800,87 @@ function setAllBooks(on) {
   state.allBooks = !!on;
   savePrefs();
   render();
+}
+
+/* ----- master controls: period + sportsbook picks ----- */
+var AV = { list: [], eff: [] };   /* books carrying today's lines for the chosen period; picks that are actually available */
+function perName() { return state.period === 'seg' ? 'Halftime / 1st 5' : 'Full game'; }
+function computeAV() {
+  var act = activeLeagues(), ds = ymd(new Date()), cnt = {}, names = {}, i, lg, od, gid, e, k, b, seen, list = [], eff = [];
+  for (i = 0; i < act.length; i++) {
+    lg = act[i];
+    if (state.period === 'seg' && !lg.seg) continue;
+    od = loadOdds(lg.key, ds);
+    if (!od || !od.games) continue;
+    for (gid in od.games) {
+      e = normEntry(od.games[gid]);
+      for (k in e.b) {
+        b = e.b[k];
+        if (b.s && !srcOn(b.s)) continue;
+        if (!b[state.period]) continue;
+        cnt[k] = (cnt[k] || 0) + 1; names[k] = b.n;
+      }
+    }
+  }
+  for (k in cnt) { list.push({ k: k, n: bookName(k, names[k]), c: cnt[k] }); }
+  list.sort(function (x, y) { return bookRank(x.k) - bookRank(y.k) || (x.n < y.n ? -1 : 1); });
+  for (i = 0; i < state.books.length; i++) { if (cnt[state.books[i]]) eff.push(state.books[i]); }
+  AV = { list: list, eff: eff };
+}
+function renderBookUI() {
+  document.body.className = document.body.className.replace(/\s*\bhasodds\b/g, '') + (state.odds ? ' hasodds' : '');
+  if (!state.odds) { $('bookMenu').className = ''; return; }
+  var bs = $('perSeg').querySelectorAll('button'), i;
+  for (i = 0; i < bs.length; i++) { bs[i].className = bs[i].getAttribute('data-per') === state.period ? 'on' : ''; }
+  var t;
+  if (!AV.eff.length) t = 'Books: auto' + (AV.list.length ? ' (' + AV.list.length + ' available)' : '');
+  else t = 'Books: ' + AV.eff.map(function (k) { return bookName(k); }).join(', ');
+  $('bookBtn').textContent = t + ' \u25be';
+  var open = $('bookMenu').className === 'show';
+  $('bookBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) {
+    var h = '<div class="bmh">' + (state.period === 'seg' ? 'Books with halftime / 1st-5-innings lines today' : 'Books with full-game lines today') + ' \u2014 tap to pick one or more</div>';
+    h += '<button class="bmi' + (AV.eff.length ? '' : ' on') + '" data-bk="" role="option"><span class="bx"></span>Auto (Pinnacle first)</button>';
+    for (i = 0; i < AV.list.length; i++) {
+      h += '<button class="bmi' + (AV.eff.indexOf(AV.list[i].k) >= 0 ? ' on' : '') + '" data-bk="' + esc(AV.list[i].k) + '" role="option"><span class="bx"></span>' + esc(AV.list[i].n) + '<span class="bc">' + AV.list[i].c + ' games</span></button>';
+    }
+    if (!AV.list.length) h += '<div class="bmh">No books have posted ' + (state.period === 'seg' ? 'halftime' : 'full-game') + ' odds for today yet.</div>';
+    $('bookMenu').innerHTML = h;
+  }
+}
+function setPeriod(per) {
+  state.period = per === 'seg' ? 'seg' : 'full';
+  savePrefs(); render();
+}
+function toggleBook(k) {
+  if (!k) state.books = [];
+  else {
+    var cur = AV.eff.slice(), i = cur.indexOf(k);
+    if (i >= 0) cur.splice(i, 1); else cur.push(k);
+    state.books = cur;
+  }
+  savePrefs(); render();
+}
+/* books carrying the chosen period on one game; items = those the user picked (null while on auto) */
+function pickFor(list) {
+  var pool = [], i;
+  for (i = 0; i < list.length; i++) { if (list[i].b[state.period]) pool.push(list[i]); }
+  if (!AV.eff.length) return { pool: pool, items: null };
+  return { pool: pool, items: pool.filter(function (it) { return AV.eff.indexOf(it.k) >= 0; }) };
+}
+/* update just the "updated Xm ago" labels in place: no re-render, so nothing blinks or moves */
+function refreshAges() {
+  if (state.track) return;
+  updateMeta();
+  var els = document.querySelectorAll('.oage[data-t]'), i, t, stale;
+  for (i = 0; i < els.length; i++) {
+    t = Number(els[i].getAttribute('data-t'));
+    stale = navigator.onLine && Date.now() - t > ODDS_FRESH_MS;
+    var txt = (stale ? 'stale \u00b7 ' : '') + ago(t);
+    if (els[i].textContent !== txt) els[i].textContent = txt;
+    var cls = 'oage' + (stale ? ' stale' : '');
+    if (els[i].className !== cls) els[i].className = cls;
+  }
 }
 
 /* ----- showing them ----- */
@@ -1803,7 +1915,7 @@ function ageTag(t, g, late) {
   if (g.state !== 'pre') return '<span class="oage">' + (late ? 'in-game line' : 'closing lines') + '</span>';
   if (!t) return '';
   var stale = navigator.onLine && Date.now() - t > ODDS_FRESH_MS;   /* offline, an old line is just old: show its age, no warning */
-  return '<span class="oage' + (stale ? ' stale' : '') + '">' + (stale ? 'stale · ' : '') + ago(t) + '</span>';
+  return '<span class="oage' + (stale ? ' stale' : '') + '" data-t="' + t + '">' + (stale ? 'stale · ' : '') + ago(t) + '</span>';
 }
 function spreadTxt(g, p, withPrice) {
   if (!p.sp) return '–';
@@ -1868,11 +1980,11 @@ function oddsMini(g, lg, list) {
   if (g.away.score === '' || g.home.score === '') { a = null; h = null; }
   if (lg.seg) seg = segScoreOf(g, lg);
   var segA = seg ? seg.a : null, segH = seg ? seg.h : null, segDone = !!(seg && seg.fin);
-  var spec = [['full', 'Full', a, h, g.completed]];
-  if (lg.seg) spec.push(['seg', segShort(lg), segA, segH, segDone]);
+  var spec = state.period === 'seg' ? (lg.seg ? [['seg', segShort(lg), segA, segH, segDone]] : []) : [['full', 'Full', a, h, g.completed]];
   var names = {}, nn = 0, s, n;
   for (s = 0; s < spec.length; s++) {
-    var picks = state.allBooks ? topBooks(list, 3, spec[s][0]) : [defaultPart(list, spec[s][0])];
+    var pk = pickFor(list);
+    var picks = pk.items ? pk.items : (state.allBooks ? topBooks(list, 3, spec[s][0]) : [defaultPart(list, spec[s][0])]);
     for (i = 0; i < picks.length; i++) {
       it = picks[i];
       if (!it || !it.b[spec[s][0]]) continue;
@@ -1937,25 +2049,29 @@ function oddsParts(g, lg, e, isDay) {
     return res;
   }
   if (g.state !== 'pre') { res.below = oddsMini(g, lg, list); return res; }
-  var gid = g.id, more = !!state.more[gid], i, pool = [], chips = [], sel = null, want = state.bk[gid], it, seen = {};
-  for (i = 0; i < list.length; i++) { if (list[i].b.full || (lg.seg && list[i].b.seg)) pool.push(list[i]); }
-  if (!pool.length) return res;
-  if (state.allBooks || more) {
-    var top = topBooks(list, 3, 'full');
+  var gid = g.id, more = !!state.more[gid], i, chips = [], sel = null, want = state.bk[gid], seen = {}, P = state.period;
+  if (P === 'seg' && !lg.seg) { res.below = '<div class="odds none">No halftime odds for ' + esc(lg.label) + '</div>'; return res; }
+  var pk = pickFor(list), pool = pk.pool, chosen = !!pk.items;
+  if (!pool.length) { res.below = '<div class="odds none">' + (P === 'seg' ? segName(lg) : 'Full-game') + ' odds not posted yet</div>'; return res; }
+  if (chosen) {
+    for (i = 0; i < pk.items.length; i++) { chips.push(pk.items[i]); seen[pk.items[i].k] = 1; }
+  } else if (state.allBooks || more) {
+    var top = topBooks(list, 3, P);
     for (i = 0; i < top.length; i++) { chips.push(top[i]); seen[top[i].k] = 1; }
-    if (more) for (i = 0; i < pool.length; i++) { if (!seen[pool[i].k]) chips.push(pool[i]); }
+  }
+  if (more) for (i = 0; i < pool.length; i++) { if (!seen[pool[i].k]) chips.push(pool[i]); }
+  if (chosen && !chips.length) {
+    res.below = '<div class="ocap"><span>Your selected book' + (AV.eff.length > 1 ? 's have' : ' has') + ' no ' + (P === 'seg' ? segName(lg).toLowerCase() : 'full-game') + ' line on this game</span>' +
+      '<button class="omore" data-more="' + esc(gid) + '" aria-expanded="false">Other books \u25be</button></div>';
+    return res;
   }
   var src = chips.length ? chips : pool;
   for (i = 0; i < src.length; i++) { if (src[i].k === want) sel = src[i]; }
-  if (!sel) sel = chips.length ? chips[0] : (defaultPart(list, 'full') || pool[0]);
-  var part = state.part[gid] === 'seg' && lg.seg && sel.b.seg ? 'seg' : (sel.b.full ? 'full' : 'seg');
-  var p = sel.b[part], showMl = !!p.ml, t = partTime(sel, part);
+  if (!sel) sel = chips.length ? chips[0] : (defaultPart(list, P) || pool[0]);
+  var part = P, p = sel.b[part], showMl = !!p.ml, t = partTime(sel, part);
   var chipRow = '';
-  if (chips.length) {
+  if (chips.length > 1 || (chips.length && !chosen)) {
     chipRow = chipsHTML(gid, chips.map(function (x) { return { k: x.k, n: x.b.n }; }), sel.k, 'data-bk');
-  }
-  if (lg.seg && sel.b.full && sel.b.seg) {
-    chipRow += '<span class="bsep"></span>' + chipsHTML(gid, [{ k: 'full', n: 'Game' }, { k: 'seg', n: segShort(lg) }], part, 'data-part');
   }
   if (chipRow) res.top = '<div class="bchips">' + chipRow + '</div>';
   res.head = '<div class="ohd"><div class="obtns"><span class="ob2 sp">Spread</span><span class="ob2 tt">Total</span>' + (showMl ? '<span class="ob2 ml">Money</span>' : '') + '</div></div>';
@@ -2300,6 +2416,38 @@ function restoreDetails(map) {
   }
 }
 
+/* swap the cards in only when their markup actually changed -- an identical re-render (a timer tick,
+   a no-op sync) used to rebuild every card, which is what made the screen blink and jump */
+var lastGames = null;
+function setGames(html, keep) {
+  var main = $('games');
+  if (html === lastGames) return;
+  lastGames = html;
+  var y = window.pageYOffset;
+  main.innerHTML = html;
+  if (keep) restoreDetails(keep);
+  if (window.pageYOffset !== y) window.scrollTo(0, y);
+}
+
+/* the status line under the header ("Updated 3m ago · Odds 2m ago") -- cheap to call on its own */
+function updateMeta() {
+  var lg = leagueOf(state.league), ds = ymd(state.date), entry = load(lg.key, ds);
+  var oddsDay = state.odds ? loadOdds(lg.key, ds) : null;
+  var meta = state.live ? 'Live sync on \u00b7 ' : '';
+  if (state.syncing && !state.live) meta += 'Syncing\u2026';
+  else if (entry) meta += 'Updated ' + ago(entry.t);
+  else meta += navigator.onLine ? 'Not synced yet' : 'Offline \u00b7 nothing cached for this day';
+  if (state.odds) {
+    if (!lg.pin) meta += ' \u00b7 no odds for ' + lg.label;
+    else if (oddsDay && oddsDay.t) meta += ' \u00b7 Odds ' + ago(oddsDay.t) + (OD.busy && OD.force ? ' (updating\u2026)' : '');
+    else if (!isToday(state.date)) meta += ' \u00b7 Odds: today only';
+    else meta += ' \u00b7 Odds ' + (OD.busy ? 'downloading\u2026' : 'not downloaded yet');
+  }
+  if (!store.persistent) meta += ' \u00b7 storage blocked here: cache won\u2019t survive closing';
+  var m = $('metaLine');
+  if (m.textContent !== meta) m.textContent = meta;
+}
+
 /* dedicated single-game view */
 function renderTrack() {
   var t = state.track, lg = leagueOf(t.lgKey);
@@ -2318,10 +2466,11 @@ function renderTrack() {
     }
   }
   if (!g) {
-    $('games').innerHTML = '<div class="empty"><div class="big">Game unavailable</div>Couldn\u2019t find this game in the latest data \u2014 go back and re-sync.</div>';
+    setGames('<div class="empty"><div class="big">Game unavailable</div>Couldn\u2019t find this game in the latest data \u2014 go back and re-sync.</div>');
     return;
   }
-  $('games').innerHTML = cardHTML(g, lg, { track: true, oddsDay: state.odds ? loadOdds(lg.key, t.ds) : null, isOddsDay: t.ds === ymd(new Date()) });
+  if (state.odds) computeAV();
+  setGames(cardHTML(g, lg, { track: true, oddsDay: state.odds ? loadOdds(lg.key, t.ds) : null, isOddsDay: t.ds === ymd(new Date()) }));
 }
 
 function render() {
@@ -2343,18 +2492,9 @@ function render() {
   $('oddsBtn').setAttribute('aria-pressed', state.odds ? 'true' : 'false');
   var entry = load(lg.key, ds);
   var oddsDay = state.odds ? loadOdds(lg.key, ds) : null;
-  var meta = state.live ? 'Live sync on \u00b7 ' : '';
-  if (state.syncing && !state.live) meta += 'Syncing\u2026';
-  else if (entry) meta += 'Updated ' + ago(entry.t);
-  else meta += navigator.onLine ? 'Not synced yet' : 'Offline \u00b7 nothing cached for this day';
-  if (state.odds) {
-    if (!lg.pin) meta += ' \u00b7 no odds for ' + lg.label;
-    else if (oddsDay && oddsDay.t) meta += ' \u00b7 Odds ' + ago(oddsDay.t) + (OD.busy ? ' (updating\u2026)' : '');
-    else if (!isToday(state.date)) meta += ' \u00b7 Odds: today only';
-    else meta += ' \u00b7 Odds ' + (OD.busy ? 'downloading\u2026' : 'not downloaded yet');
-  }
-  if (!store.persistent) meta += ' \u00b7 storage blocked here: cache won\u2019t survive closing';
-  $('metaLine').textContent = meta;
+  if (state.odds) computeAV();
+  renderBookUI();
+  updateMeta();
 
   var banner = $('banner');
   if (!navigator.onLine) { banner.textContent = ''; banner.className = ''; }
@@ -2367,19 +2507,18 @@ function render() {
     var hint;
     if (!navigator.onLine) hint = 'Reconnect and tap <b>Sync all</b> \u2014 after that, this day stays readable offline.';
     else hint = 'Tap <b>Sync all</b> \u2014 it fetches the day you\u2019re on, so ' + esc(lg.label) + ' for this date will be saved for offline reading.';
-    main.innerHTML = '<div class="empty"><div class="big">Nothing cached for this day</div>' + hint + '</div>';
+    setGames('<div class="empty"><div class="big">Nothing cached for this day</div>' + hint + '</div>');
     return;
   }
   if (!entry.games.length) {
-    main.innerHTML = '<div class="empty"><div class="big">No ' + esc(lg.label) + ' games</div>Nothing scheduled on this date.</div>';
+    setGames('<div class="empty"><div class="big">No ' + esc(lg.label) + ' games</div>Nothing scheduled on this date.</div>');
     return;
   }
   var keep = detailStates();
   var html = '', i;
   var oi = { oddsDay: oddsDay, isOddsDay: isToday(state.date) };
   for (i = 0; i < entry.games.length; i++) { html += cardHTML(entry.games[i], lg, oi); }
-  main.innerHTML = html;
-  restoreDetails(keep);
+  setGames(html, keep);
 }
 
 /* ---------- events ---------- */
@@ -2421,6 +2560,26 @@ $('liveBtn').addEventListener('click', function () { setLive(!state.live); });
 $('oddsBtn').addEventListener('click', function () { setOdds(!state.odds); });
 $('allBtn').addEventListener('click', function () { setAllBooks(!state.allBooks); });
 $('srcBtn').addEventListener('click', openOSheet);
+$('perSeg').addEventListener('click', function (e) {
+  var b = e.target && e.target.closest ? e.target.closest('button') : null;
+  if (b && b.getAttribute('data-per')) setPeriod(b.getAttribute('data-per'));
+});
+$('bookBtn').addEventListener('click', function () {
+  var m = $('bookMenu');
+  m.className = m.className === 'show' ? '' : 'show';
+  renderBookUI();
+});
+$('bookMenu').addEventListener('click', function (e) {
+  var b = e.target && e.target.closest ? e.target.closest('.bmi') : null;
+  e.stopPropagation();       /* the tapped row is rebuilt below, so the outside-tap closer must not see it */
+  if (b) toggleBook(b.getAttribute('data-bk'));
+});
+document.addEventListener('click', function (e) {          /* tap anywhere else closes the book list */
+  var m = $('bookMenu');
+  if (m.className !== 'show') return;
+  if (e.target && e.target.closest && e.target.closest('#bookMenu, #bookBtn')) return;
+  m.className = ''; renderBookUI();
+});
 $('osheetDone').addEventListener('click', closeOSheet);
 $('osheet').addEventListener('click', function (e) {
   if (e.target === $('osheet')) { closeOSheet(); return; }
@@ -2456,7 +2615,7 @@ $('osheet').addEventListener('input', function (e) {
 setInterval(function () {
   if (!state.odds || document.hidden || state.track || state.sheet || state.osheet) return;
   oddsSync(false);
-  render();
+  refreshAges();          /* labels only: a full render here is what made the page blink */
 }, 60000);
 document.addEventListener('visibilitychange', function () {
   if (!document.hidden && state.odds && !state.track) oddsSync(false);
