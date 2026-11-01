@@ -456,6 +456,38 @@ body.hasodds #metaLine { min-height: 32px; }
 .nogap .fbsit > * { margin-right: 18px; }
 .nogap .oh > * + * { margin-left: 8px; }
 .nogap .om > * { margin-right: 10px; }
+/* ---- phones (e.g. Galaxy A15, ~411px wide): the card's fixed-width columns
+       (tile, score, halftime/F5, right-hand summary) plus 14px page and card
+       padding left the team name only ~30px, so names truncated to "T." and
+       records wrapped. Tighten padding, gaps and column widths so the name
+       gets real room. Tablets (>430px) keep the roomy layout above. ---- */
+@media (max-width: 430px) {
+  main { padding-left: 8px; padding-right: 8px; }
+  .card { padding: 10px; }
+  .trow, .f5head, .mid { gap: 6px; }
+  .tile { width: 36px; height: 36px; font-size: 11px; letter-spacing: 0; }
+  .f5head .tsp { width: 36px; }
+  .tname .n { font-size: 15px; }
+  .tname .r { white-space: nowrap; }
+  .score { font-size: 26px; min-width: 48px; }
+  .f5head .pad { width: 48px; }
+  .f5head .fint, .f5head .livet { letter-spacing: .04em; }
+  .f5col { width: 54px; font-size: 17px; }
+  .f5head .lab { width: 54px; font-size: 8px; letter-spacing: .04em; padding: 0; }
+  .gsum { width: 108px; padding-left: 8px; }
+  .gsv { font-size: 12px; }
+  .gst { font-size: 11px; }
+  .gsh { font-size: 8px; letter-spacing: .06em; }
+  .nogap .trow > * + *, .nogap .f5head > * + *, .nogap .mid > * + * { margin-left: 6px; }
+}
+@media (max-width: 370px) {
+  .score { font-size: 24px; min-width: 42px; }
+  .f5head .pad { width: 42px; }
+  .f5col { width: 46px; font-size: 16px; }
+  .f5head .lab { width: 46px; font-size: 7px; }
+  .gsum { width: 96px; }
+  .gsv { font-size: 11px; } .gst { font-size: 10px; }
+}
 </style>
 </head>
 <body>
