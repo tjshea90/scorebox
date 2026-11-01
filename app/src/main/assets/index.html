@@ -195,6 +195,8 @@ main { padding: 6px 14px 40px; max-width: 720px; margin: 0 auto; }
   background: #161c22; border: 1px solid #26303a; border-radius: 12px;
   padding: 12px 14px; margin-top: 12px;
 }
+.gcount { margin: 12px 2px -4px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
+.gcount b { color: #ffb424; font-size: 14px; }
 .card .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
 .topleft { min-width: 0; }
 .status { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #8b99a6; }
@@ -2547,7 +2549,8 @@ function render() {
     return;
   }
   var keep = detailStates();
-  var html = '', i;
+  var n = entry.games.length;
+  var html = '<div class="gcount num"><b>' + n + '</b> ' + esc(lg.label) + ' game' + (n === 1 ? '' : 's') + ' scheduled</div>', i;
   var oi = { oddsDay: oddsDay, isOddsDay: isToday(state.date) };
   for (i = 0; i < entry.games.length; i++) { html += cardHTML(entry.games[i], lg, oi); }
   setGames(html, keep);
