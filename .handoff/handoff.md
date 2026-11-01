@@ -1,0 +1,66 @@
+---
+date: 2026-11-01T04:49:59.707Z
+project: scorebox
+session: 9d45eacc
+schema_version: 1
+next_steps_count: 4
+has_blockers: false
+keywords: scorebox, league tabs, score toggles, odds toggles, phone layout, game count, release apk
+headline: Goal: iterate ScoreBox (Android single-WebView scoreboard, all UI/logic in app/src/main/assets/index.html) per user requ
+---
+
+# Session Handoff Snapshot
+> **Generated:** 11/1/2026, 4:49:59 AM
+
+## 🎯 High-Level Objective
+* **Goal:** Goal: iterate ScoreBox (Android single-WebView scoreboard, all UI/logic in app/src/main/assets/index.html) per user requests on Galaxy A15 phone + tablet. Intent: glanceable multi-sport scores+odds; every change shipped as signed APK.
+
+## 📌 Current State & Next Steps
+* **Status:** Done: all five changes merged to main (HEAD aaf36c5) and branch ccr-77cbabda-o1ul8p; build v3.0.33 succeeded; APK sent to user as file. Tested only with playwright mock cards (scratchpad) at 360/411/768px; not seen on real device or live ESPN data. No pending code changes.
+* **Next Action:** Await user feedback on build 33 from A15 and tablet screenshots
+
+### Remaining Queue
+- [ ] Verify with real ESPN data: tab counts, total bar, live-game cards, odds boards with both odds toggles, halftime-only score layout (seg column left-aligned when full scores off)
+- [ ] Ask user whether NHL halftime should mean after 2 periods; consider wiring NHL period odds
+- [ ] Remove dead CSS (.gsum, #editBtn, sheet styles) if desired
+
+## 🛠️ Modified Files Delta
+* app/src/main/assets/index.html: phone media queries; renderTabs/leaguesWithGames/gamesIn + #totalBar; removed gsumHTML and sheet code; view toggles setView/renderViewUI, oddsWant/bookHas, pickFor(list, parts); segScoreOf/segLabel; cardHTML honors sFull/sSeg; loadPrefs/savePrefs new fields; footer text
+
+## 🚫 Failed Approaches (DO NOT RETRY)
+* Approach: gh release download → Result: 403 GraphQL blocked in Claude Code sessions → Lesson: use gh api repos/.../releases/assets/ID with Accept: application/octet-stream
+* Approach: foreground sleep to wait for CI → Result: blocked by harness → Lesson: use Monitor with until-loop polling gh api actions/runs/ID
+
+## 🔑 Crucial Context & Implicit Rules
+* Stack: vanilla HTML/CSS/JS in single file, no build step; MainActivity.java thin shell relaying ESPN GETs
+* Before work: git fetch origin main && git merge origin/main; HEAD..origin/main must be empty
+* Release: push HEAD:main triggers .github/workflows/build-release.yml; tag v<versionName>.<run_number>; always report outcome and send APK file
+* Test pattern: expose cardHTML/state/render in a temp copy of index.html (sed on trailing render();) and drive with playwright; cache key sbx2:<league>:<ymd>, odds key sbx2:o-<league>:<ymd>
+* Target devices: Galaxy A15 5G (~411 CSS px) and an older tablet (old WebView, .nogap fallback margins needed alongside flex gap)
+* Session branch ccr-77cbabda-o1ul8p must also be pushed (stop hook checks)
+
+## Key Decisions
+- Decision: land all work on main (git push HEAD:main) — Reason: CLAUDE.md says main is the single release branch; push triggers signed APK build
+- Decision: deliver APK via SendUserFile, not release links — Reason: user said download links always fail
+- Decision: NHL halftime = 1st period, no NHL halftime odds — Reason: hockey has no half; Pinnacle seg not wired for NHL; user may prefer after 2 periods
+- Decision: sSeg default on for all leagues incl CFB/NHL — Reason: user wanted CFB halftime available; toggle turns off
+- Decision: remove leagues sheet, sync all leagues — Reason: tabs now automatic by games present
+- Decision: odds pre-game board uses full period when oFull on else seg; seg shown as mini line when both — Reason: row width cannot hold two boards
+
+## 🙋 User Contribution (human-authored)
+User specified each feature (phone spacing from A15 screenshot, game counts, auto tabs, removal of margin summary, score/odds halftime toggles, counts in tabs + total) and tested builds on device; rejected download links as unreliable.
+
+## 🙋 User Decisions (made by the human)
+- **Deliver APK as chat file instead of link**
+  - Reason: download links always fail
+- **Replace manual league editing with automatic per-day tabs**
+  - Reason: wants only leagues with games that day
+  - Rejected: manual Edit sheet
+- **Remove margin/total summary column**
+  - Reason: odds badges already show cover and over/under
+
+## Summary
+Session shipped releases v3.0.30-v3.0.33 from main. (1) Phone spacing: @media max-width 430px (+370px tier) tightens padding/gaps/columns so team names show on ~411px; tablet untouched. (2) Auto league tabs: only leagues with cached games on viewed day; Edit button + leagues sheet removed; all leagues always synced; state.pref remembers tapped tab, falls back to first league with games. (3) Removed gsum margin/total column. (4) Header Scores [Full game][Halftime] and Odds [Full game][Halftime] independent toggles (state.sFull/sSeg/oFull/oSeg, prefs-persisted, migrated from old period pref); segScoreOf/segLabel compute halftime from linescore for every sport (CFB first half, NHL 1st period); pre-game board shows full line, halftime line as mini row when both odds on. (5) Game count in each tab as (N) and #totalBar total across leagues above tabs; per-list count line removed.
+
+---
+*A short hint surfaces on session start; full context loads only if your next prompt matches a keyword above, or via manual `/handoff-resume`. The same record is available as a sibling `.json` file for external tools.*

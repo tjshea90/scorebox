@@ -1,0 +1,1 @@
+2026-11-01T04:49:59.707Z | scorebox, league tabs, score toggles, odds toggles, phone layout, game count, release apk | Goal: iterate ScoreBox (Android single-WebView scoreboard, all UI/logic in app/src/main/assets/index.html) per user requ | 2026-11-01/handoff-2026-11-01T04-49-59-707Z.md
