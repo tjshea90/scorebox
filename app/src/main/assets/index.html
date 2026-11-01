@@ -345,10 +345,16 @@ body.tracking .mbtn { display: none; }
 #mrow { display: none; align-items: center; gap: 8px; margin-top: 8px; }
 body.hasodds #mrow { display: flex; }
 body.tracking #mrow, body.tracking #bookMenu { display: none !important; }
-#perSeg { display: flex; flex: none; border: 1px solid #26303a; border-radius: 8px; overflow: hidden; }
+#vrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.vlab { flex: none; width: 46px; font-size: 11px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
+.vseg { display: flex; flex: none; border: 1px solid #26303a; border-radius: 8px; overflow: hidden; }
+.vseg button { min-height: 34px; padding: 0 12px; font-size: 11px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: #8b99a6; }
+.vseg button.on { background: rgba(255,180,36,.16); color: #ffb424; }
+.nogap #vrow > * + *, .nogap #mrow > * + * { margin-left: 8px; }
+body.tracking #vrow { display: none; }
 #perSeg button { min-height: 34px; padding: 0 12px; font-size: 11px; font-weight: 800; letter-spacing: .06em;
   text-transform: uppercase; color: #8b99a6; }
-#perSeg button.on { background: rgba(255,180,36,.16); color: #ffb424; }
 #bookBtn { flex: 1; min-width: 0; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   text-transform: none; letter-spacing: 0; font-size: 12px; min-height: 34px; }
 #bookMenu { display: none; position: absolute; left: 14px; right: 14px; top: 100%; max-height: 60vh; overflow-y: auto;
@@ -518,7 +524,8 @@ body.hasodds #metaLine { min-height: 32px; }
     <button id="syncBtn">Sync all</button>
   </div>
   <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span><span id="buildTag"></span><div class="mbtns"><button id="srcBtn" class="mbtn">Sources</button><button id="allBtn" class="mbtn" style="display:none">All books</button><button id="oddsBtn" class="mbtn" aria-pressed="false">Odds off</button></div></div>
-  <div id="mrow"><div id="perSeg" role="group" aria-label="Odds period"><button data-per="full">Full game</button><button data-per="seg">Halftime</button></div><button id="bookBtn" class="mbtn" aria-haspopup="listbox" aria-expanded="false">Books</button></div>
+  <div id="vrow"><span class="vlab">Scores</span><div class="vseg" role="group" aria-label="Scores shown"><button data-v="sFull">Full game</button><button data-v="sSeg">Halftime</button></div></div>
+  <div id="mrow"><span class="vlab">Odds</span><div id="perSeg" class="vseg" role="group" aria-label="Odds shown"><button data-v="oFull">Full game</button><button data-v="oSeg">Halftime</button></div><button id="bookBtn" class="mbtn" aria-haspopup="listbox" aria-expanded="false">Books</button></div>
   <div id="bookMenu" role="listbox" aria-multiselectable="true"></div>
 </header>
 
@@ -538,23 +545,11 @@ body.hasodds #metaLine { min-height: 32px; }
 
 <nav>
   <div id="tabs"></div>
-  <button id="editBtn" aria-label="Add or remove leagues">Edit</button>
 </nav>
 </div>
 <div id="banner"></div>
 <main id="games"></main>
-<footer>Scores via ESPN's public feed. Tap Edit beside the tabs to add or remove leagues — only the leagues you have on are ever synced; a league you remove isn't fetched or refreshed again until you add it back. Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button); a pull to refresh re-downloads them all, and they are saved for offline reading. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. CFB and NHL show final results only — no halftime or period splits. F5 = through 5 innings · HT = halftime.</footer>
-
-<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
-  <div class="sheetcard">
-    <div class="sheethead">
-      <div class="st" id="sheetTitle">Leagues</div>
-      <button id="sheetDone">Done</button>
-    </div>
-    <div class="sheetnote" id="sheetNote"></div>
-    <div id="leagueList"></div>
-  </div>
-</div>
+<footer>Scores via ESPN's public feed. League tabs appear by themselves for the leagues that have games on the day you're viewing. The Scores and Odds switches under the header choose whether full-game and / or halftime (first 5 innings, 1st period) results show. Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button); a pull to refresh re-downloads them all, and they are saved for offline reading. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. F5 = through 5 innings · HT = halftime.</footer>
 
 <div id="osheet" role="dialog" aria-modal="true" aria-labelledby="osheetTitle">
   <div class="sheetcard">
@@ -661,14 +656,15 @@ var state = {
   on: {},           /* leagueKey -> 1 for every league shown as a tab and synced */
   odds: false,      /* the Odds toggle: download and show today's lines */
   allBooks: false,  /* odds: show every book (off = Pinnacle's line, another book only where Pinnacle has none) */
-  period: 'full',   /* MASTER odds period: 'full' game or 'seg' (halftime / first 5 innings) for every sport */
+  pref: 'mlb',      /* the league tab last tapped (used whenever it has games on the viewed day) */
+  sFull: true, sSeg: true,    /* show full-game scores / halftime (F5, 1st period) scores */
+  oFull: true, oSeg: false,   /* show full-game odds / halftime (F5) odds */
   books: [],        /* MASTER book picks (empty = auto: Pinnacle first, as before) */
   osrc: {},         /* odds source id -> false when switched off (missing = on) */
   bk: {},           /* game id -> the book picked in its chip row (in memory only) */
   part: {},         /* game id -> 'seg' while its half / first-5 line is showing */
   more: {},         /* game id -> its "More books" table is open (in memory only) */
   osheet: false,    /* the Odds sources sheet is open */
-  sheet: false,     /* add / remove leagues sheet is open */
   live: false, syncing: false, errors: [],
   timer: null,
   track: null,      /* {lgKey, ds, id} while tracking one game */
@@ -911,7 +907,7 @@ function parseScoreboard(json, lg) {
       g.f5 = calcCut(g, 5, null);
     }
     else if (lg.kind === 'quarters') {
-      if (!lg.noSplit) g.ht = calcCut(g, 2, /half/i);
+      g.ht = calcCut(g, 2, /half/i);
       if (g.state === 'in' && lg.football && comp.situation) {
         g.fb = parseFootballSituation(comp.situation, home, away);
       }
@@ -920,7 +916,7 @@ function parseScoreboard(json, lg) {
       /* halftime = the first period. Not /half/i like the quarters leagues:
          a live first-half status reads "12:34 - 1st Half", which would mark
          halftime as over before it's reached. */
-      if (!lg.noSplit) g.ht = calcCut(g, 1, /halftime/i);
+      g.ht = calcCut(g, 1, /halftime/i);
     }
     else if (lg.kind === 'soccer') g.ht = calcHTSoccer(g);
     /* 'periods' (NHL): final scores only — nothing extra to derive */
@@ -1204,7 +1200,7 @@ function setTrack(t) {
 function savePrefs() {
   var keys = [], act = activeLeagues(), i;
   for (i = 0; i < act.length; i++) { keys.push(act[i].key); }
-  store.set(PFX + 'prefs', { league: state.league, leagues: keys, odds: !!state.odds, allBooks: !!state.allBooks, period: state.period, books: state.books, osrc: state.osrc });
+  store.set(PFX + 'prefs', { league: state.pref, sFull: state.sFull, sSeg: state.sSeg, oFull: state.oFull, oSeg: state.oSeg, leagues: keys, odds: !!state.odds, allBooks: !!state.allBooks, period: state.period, books: state.books, osrc: state.osrc });
 }
 function loadPrefs() {
   var p = store.get(PFX + 'prefs') || {}, i, any = false;
@@ -1214,13 +1210,17 @@ function loadPrefs() {
       if (leagueOf(p.leagues[i]).key === p.leagues[i]) { state.on[p.leagues[i]] = 1; any = true; }
     }
   }
-  /* first run, or prefs saved by a build from before leagues could be
-     switched off: everything on (a pick of none can't happen, see toggleLeague) */
-  if (!any) { for (i = 0; i < LEAGUES.length; i++) { state.on[LEAGUES[i].key] = 1; } }
-  state.league = (p.league && state.on[p.league]) ? p.league : activeLeagues()[0].key;
+  /* every league is always on now: tabs appear by themselves for the leagues
+     that have games on the viewed day (see renderTabs) */
+  for (i = 0; i < LEAGUES.length; i++) { state.on[LEAGUES[i].key] = 1; }
+  state.pref = (p.league && leagueOf(p.league).key === p.league) ? p.league : 'mlb';
+  state.league = state.pref;
+  state.sFull = p.sFull !== false;
+  state.sSeg = p.sSeg !== false;
+  if (p.oFull === undefined && p.oSeg === undefined) { state.oFull = p.period !== 'seg'; state.oSeg = p.period === 'seg'; }
+  else { state.oFull = p.oFull !== false; state.oSeg = p.oSeg === true; }
   state.odds = p.odds === true;
   state.allBooks = p.allBooks === true;
-  state.period = p.period === 'seg' ? 'seg' : 'full';
   state.books = (p.books instanceof Array) ? p.books.filter(function (x) { return typeof x === 'string'; }) : [];
   state.osrc = (p.osrc && typeof p.osrc === 'object') ? p.osrc : {};
 }
@@ -1838,12 +1838,19 @@ function setAllBooks(on) {
 
 /* ----- master controls: period + sportsbook picks ----- */
 var AV = { list: [], eff: [] };   /* books carrying today's lines for the chosen period; picks that are actually available */
-function perName() { return state.period === 'seg' ? 'Halftime / 1st 5' : 'Full game'; }
-function computeAV() {
+/* which parts of the game the odds toggles want for a league: 'full' and / or 'seg' */
+function oddsWant(lg) {
+  var w = [];
+  if (state.oFull) w.push('full');
+  if (state.oSeg && lg.seg) w.push('seg');
+  return w;
+}
+function bookHas(b, lg) { return (state.oFull && !!b.full) || (state.oSeg && !!lg.seg && !!b.seg); }
+function oddsWhat() { return state.oFull && state.oSeg ? 'full-game or halftime' : (state.oSeg ? 'halftime / 1st-5-innings' : 'full-game'); }function computeAV() {
   var act = activeLeagues(), ds = ymd(new Date()), cnt = {}, names = {}, i, lg, od, gid, e, k, b, seen, list = [], eff = [];
   for (i = 0; i < act.length; i++) {
     lg = act[i];
-    if (state.period === 'seg' && !lg.seg) continue;
+    if (!oddsWant(lg).length) continue;
     od = loadOdds(lg.key, ds);
     if (!od || !od.games) continue;
     for (gid in od.games) {
@@ -1851,7 +1858,7 @@ function computeAV() {
       for (k in e.b) {
         b = e.b[k];
         if (b.s && !srcOn(b.s)) continue;
-        if (!b[state.period]) continue;
+        if (!bookHas(b, lg)) continue;
         cnt[k] = (cnt[k] || 0) + 1; names[k] = b.n;
       }
     }
@@ -1864,8 +1871,7 @@ function computeAV() {
 function renderBookUI() {
   document.body.className = document.body.className.replace(/\s*\bhasodds\b/g, '') + (state.odds ? ' hasodds' : '');
   if (!state.odds) { $('bookMenu').className = ''; return; }
-  var bs = $('perSeg').querySelectorAll('button'), i;
-  for (i = 0; i < bs.length; i++) { bs[i].className = bs[i].getAttribute('data-per') === state.period ? 'on' : ''; }
+  var i;
   var t;
   if (!AV.eff.length) t = 'Books: auto' + (AV.list.length ? ' (' + AV.list.length + ' available)' : '');
   else t = 'Books: ' + AV.eff.map(function (k) { return bookName(k); }).join(', ');
@@ -1873,18 +1879,30 @@ function renderBookUI() {
   var open = $('bookMenu').className === 'show';
   $('bookBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
   if (open) {
-    var h = '<div class="bmh">' + (state.period === 'seg' ? 'Books with halftime / 1st-5-innings lines today' : 'Books with full-game lines today') + ' \u2014 tap to pick one or more</div>';
+    var h = '<div class="bmh">' + 'Books with ' + oddsWhat() + ' lines today' + ' \u2014 tap to pick one or more</div>';
     h += '<button class="bmi' + (AV.eff.length ? '' : ' on') + '" data-bk="" role="option"><span class="bx"></span>Auto (Pinnacle first)</button>';
     for (i = 0; i < AV.list.length; i++) {
       h += '<button class="bmi' + (AV.eff.indexOf(AV.list[i].k) >= 0 ? ' on' : '') + '" data-bk="' + esc(AV.list[i].k) + '" role="option"><span class="bx"></span>' + esc(AV.list[i].n) + '<span class="bc">' + AV.list[i].c + ' games</span></button>';
     }
-    if (!AV.list.length) h += '<div class="bmh">No books have posted ' + (state.period === 'seg' ? 'halftime' : 'full-game') + ' odds for today yet.</div>';
+    if (!AV.list.length) h += '<div class="bmh">No books have posted ' + oddsWhat() + ' odds for today yet.</div>';
     $('bookMenu').innerHTML = h;
   }
 }
-function setPeriod(per) {
-  state.period = per === 'seg' ? 'seg' : 'full';
+function setView(which) {   /* the Scores / Odds toggles in the header */
+  if (which === 'sFull') state.sFull = !state.sFull;
+  else if (which === 'sSeg') state.sSeg = !state.sSeg;
+  else if (which === 'oFull') state.oFull = !state.oFull;
+  else if (which === 'oSeg') state.oSeg = !state.oSeg;
+  else return;
   savePrefs(); render();
+}
+function renderViewUI() {
+  var bs = document.querySelectorAll('#vrow button[data-v], #mrow button[data-v]'), i, k;
+  for (i = 0; i < bs.length; i++) {
+    k = bs[i].getAttribute('data-v');
+    bs[i].className = state[k] ? 'on' : '';
+    bs[i].setAttribute('aria-pressed', state[k] ? 'true' : 'false');
+  }
 }
 function toggleBook(k) {
   if (!k) state.books = [];
@@ -1896,9 +1914,11 @@ function toggleBook(k) {
   savePrefs(); render();
 }
 /* books carrying the chosen period on one game; items = those the user picked (null while on auto) */
-function pickFor(list) {
-  var pool = [], i;
-  for (i = 0; i < list.length; i++) { if (list[i].b[state.period]) pool.push(list[i]); }
+function pickFor(list, parts) {
+  var pool = [], i, j;
+  for (i = 0; i < list.length; i++) {
+    for (j = 0; j < parts.length; j++) { if (list[i].b[parts[j]]) { pool.push(list[i]); break; } }
+  }
   if (!AV.eff.length) return { pool: pool, items: null };
   return { pool: pool, items: pool.filter(function (it) { return AV.eff.indexOf(it.k) >= 0; }) };
 }
@@ -1988,11 +2008,17 @@ function totalResult(p, a, h) {
   var s = a + h;
   return s > p.tot.p ? 'over' : (s < p.tot.p ? 'under' : 'push');
 }
+/* the halftime-style score for any sport, worked out from the line score so it also covers games cached before it was shown:
+   baseball first 5 innings, football / basketball the first half, hockey the first period */
 function segScoreOf(g, lg) {
-  if (lg.kind === 'innings') return g.f5;
-  if (lg.noSplit && lg.kind === 'quarters') return calcCut(g, 2, /half/i);   /* CFB keeps no halftime column, but its odds are judged at the half */
-  return g.ht;
+  if (lg.kind === 'innings') return g.f5 || null;
+  if (g.ht) return g.ht;
+  if (lg.kind === 'quarters') return calcCut(g, 2, /half/i);
+  if (lg.kind === 'halves') return calcCut(g, 1, /halftime/i);
+  if (lg.kind === 'periods') return calcCut(g, 1, null);
+  return null;
 }
+function segLabel(lg) { return lg.kind === 'innings' ? 'First 5 innings' : (lg.kind === 'periods' ? '1st period' : 'Halftime'); }
 function resultBadges(g, lg, p, a, h) {
   var out = '', r = spreadResult(p, a, h), t = totalResult(p, a, h);
   if (r === 'push') out += '<span class="rb push">Spread push</span>';
@@ -2014,10 +2040,12 @@ function oddsMini(g, lg, list) {
   if (g.away.score === '' || g.home.score === '') { a = null; h = null; }
   if (lg.seg) seg = segScoreOf(g, lg);
   var segA = seg ? seg.a : null, segH = seg ? seg.h : null, segDone = !!(seg && seg.fin);
-  var spec = state.period === 'seg' ? (lg.seg ? [['seg', segShort(lg), segA, segH, segDone]] : []) : [['full', 'Full', a, h, g.completed]];
+  var spec = [];
+  if (state.oFull) spec.push(['full', 'Full', a, h, g.completed]);
+  if (state.oSeg && lg.seg) spec.push(['seg', segShort(lg), segA, segH, segDone]);
   var names = {}, nn = 0, s, n;
   for (s = 0; s < spec.length; s++) {
-    var pk = pickFor(list);
+    var pk = pickFor(list, [spec[s][0]]);
     var picks = pk.items ? pk.items : (state.allBooks ? topBooks(list, 3, spec[s][0]) : [defaultPart(list, spec[s][0])]);
     for (i = 0; i < picks.length; i++) {
       it = picks[i];
@@ -2076,16 +2104,16 @@ function chipsHTML(gid, items, sel, attr) {
    away over home, Spread / Total / Money buttons to the right); below goes under the teams */
 function oddsParts(g, lg, e, isDay) {
   var res = { top: '', head: '', away: '', home: '', below: '' };
-  if (!state.odds || g.flag === 'Postponed' || g.flag === 'Canceled') return res;
+  if (!state.odds || (!state.oFull && !state.oSeg) || g.flag === 'Postponed' || g.flag === 'Canceled') return res;
   var list = e ? visibleBooks(normEntry(e)) : [];
   if (!list.length) {
     if (g.state === 'pre' && isDay) res.below = '<div class="odds none">Odds not posted yet</div>';
     return res;
   }
   if (g.state !== 'pre') { res.below = oddsMini(g, lg, list); return res; }
-  var gid = g.id, more = !!state.more[gid], i, chips = [], sel = null, want = state.bk[gid], seen = {}, P = state.period;
+  var gid = g.id, more = !!state.more[gid], i, chips = [], sel = null, want = state.bk[gid], seen = {}, P = state.oFull ? 'full' : 'seg';
   if (P === 'seg' && !lg.seg) { res.below = '<div class="odds none">No halftime odds for ' + esc(lg.label) + '</div>'; return res; }
-  var pk = pickFor(list), pool = pk.pool, chosen = !!pk.items;
+  var pk = pickFor(list, [P]), pool = pk.pool, chosen = !!pk.items;
   if (!pool.length) { res.below = '<div class="odds none">' + (P === 'seg' ? segName(lg) : 'Full-game') + ' odds not posted yet</div>'; return res; }
   if (chosen) {
     for (i = 0; i < pk.items.length; i++) { chips.push(pk.items[i]); seen[pk.items[i].k] = 1; }
@@ -2113,6 +2141,10 @@ function oddsParts(g, lg, e, isDay) {
   res.home = oddsCells(p, 'h', showMl);
   res.below = '<div class="ocap"><span>' + (part === 'seg' ? segName(lg) + ' · ' : '') + esc(sel.b.n) + (t ? ' · ' + ageTag(t, g, false) : '') + '</span>' +
     '<button class="omore" data-more="' + esc(gid) + '" aria-expanded="' + more + '">' + (more ? 'Fewer books ▴' : 'More books ▾') + '</button></div>';
+  if (P === 'full' && state.oSeg && lg.seg) {   /* both on: the board is the full game, the halftime line sits under it */
+    var sp2 = defaultPart(list, 'seg');
+    if (sp2) res.below += '<div class="odds mini">' + miniLine(g, lg, segShort(lg), sp2.b.n, sp2.b.seg, null, null, false) + '</div>';
+  }
   return res;
 }
 
@@ -2152,7 +2184,7 @@ function renderOSheet() {
   $('osheetNote').textContent = 'Each source is only asked for today’s games. A source that is off is never called. Keys stay on this device.';
 }
 function openOSheet() {
-  if (state.osheet || state.sheet || state.track) return;
+  if (state.osheet || state.track) return;
   state.osheet = true;
   oDraft = {};
   renderOSheet();
@@ -2187,7 +2219,7 @@ function rowHTML(team, g, f5val, fbSit, oddsBlk) {
     '<div class="tname"><div class="n">' + ball + esc(team.name) + '</div>' +
     (team.rec ? '<div class="r num">' + esc(team.rec) + '</div>' : '') +
     '</div>' +
-    (oddsBlk ? oddsBlk : '<div class="score num' + ((g.state === 'in' && !g.flag) ? ' slive' : '') + '">' + esc(scoreTxt) + so + '</div>') +
+    (oddsBlk ? oddsBlk : !state.sFull ? '' : '<div class="score num' + ((g.state === 'in' && !g.flag) ? ' slive' : '') + '">' + esc(scoreTxt) + so + '</div>') +
     f5cell +
     '</div>';
 }
@@ -2195,7 +2227,7 @@ function lsTable(g, kind, forceOpen, noSplit) {
   var aw = g.away.ls, hm = g.home.ls;
   if (!aw.length && !hm.length) return '';
   var n = Math.max(aw.length, hm.length, kind === 'innings' ? 9 : (kind === 'halves' ? 2 : 4)), i;
-  var cut = noSplit ? 0 : (kind === 'innings' ? 5 : (kind === 'halves' ? 1 : 2));
+  var cut = noSplit ? 0 : (kind === 'innings' ? 5 : (kind === 'halves' || kind === 'periods' ? 1 : 2));
   var head = '<tr><th></th>';
   for (i = 1; i <= n; i++) {
     var lab = kind === 'quarters' ? (i <= 4 ? 'Q' + i : (i === 5 ? 'OT' : 'OT' + (i - 4))) :
@@ -2294,24 +2326,6 @@ function marginLine(g, aV, hV, kind, allowPens) {
   }
   return { lead: lead, tot: a + h };
 }
-function gsumHTML(g, kind, seg) {
-  var parts = '';
-  if (g.completed) {
-    var f = marginLine(g, g.away.score, g.home.score, kind, true);
-    if (f) {
-      parts += '<div class="gsh fin">Final</div><div class="gsv">' + f.lead + '</div>' +
-        '<div class="gst">Total ' + f.tot + '</div>';
-    }
-  }
-  if (seg) {
-    var s = marginLine(g, seg.a, seg.h, kind, false);
-    if (s) {
-      parts += '<div class="gsh seg">' + (g.f5 ? 'First 5' : 'Halftime') + '</div><div class="gsv">' + s.lead + '</div>' +
-        '<div class="gst">Total ' + s.tot + '</div>';
-    }
-  }
-  return parts ? '<div class="gsum num">' + parts + '</div>' : '';
-}
 function cardHTML(g, lg, opts) {
   opts = opts || {};
   var kind = lg.kind;
@@ -2319,20 +2333,20 @@ function cardHTML(g, lg, opts) {
   var stime = startT ? '<div class="stime num">' + esc(startT) + '</div>' : '';
   var trk = (!opts.track && g.state === 'in') ? '<button class="trk" data-track="' + esc(g.id) + '">Track live</button>' : '';
   var seg = null, segLab = '';
-  if (!lg.noSplit) {   /* CFB, NHL: final results only — also skips halftimes cached by older builds */
-    if (g.f5 && g.f5.fin) { seg = g.f5; segLab = 'First 5 innings'; }
-    else if (g.ht && g.ht.fin) { seg = g.ht; segLab = 'Halftime'; }
+  if (state.sSeg) {
+    var sd = segScoreOf(g, lg);
+    if (sd && sd.fin) { seg = sd; segLab = segLabel(lg); }
   }
   var scoreLab = '';
-  if (g.completed) scoreLab = '<span class="fint">\u2713 Final</span>';
+  if (!state.sFull) scoreLab = '';
+  else if (g.completed) scoreLab = '<span class="fint">\u2713 Final</span>';
   else if (g.state === 'in' && !g.flag) scoreLab = '<span class="livet">Live</span>';
   var f5head = (seg || scoreLab)
     ? '<div class="f5head"><span class="tsp"></span><span class="nsp"></span>' +
-      '<span class="pad">' + scoreLab + '</span>' +
+      (state.sFull ? '<span class="pad">' + scoreLab + '</span>' : '') +
       (seg ? '<span class="lab">' + segLab + '</span>' : '') +
       '</div>'
     : '';
-  var gsum = gsumHTML(g, kind, seg);
   var od = oddsParts(g, lg, opts.oddsDay && opts.oddsDay.games ? opts.oddsDay.games[g.id] : null, !!opts.isOddsDay);
   return '<div class="card' + (g.state === 'post' ? ' post' : '') + (opts.track ? ' track' : '') + '" data-id="' + esc(g.id) + '">' +
     '<div class="top"><div class="topleft">' + statusHTML(g) + stime + '</div>' + trk + '</div>' +
@@ -2342,9 +2356,9 @@ function cardHTML(g, lg, opts) {
     od.top + f5head + od.head +
     rowHTML(g.away, g, seg ? seg.a : null, g.fb && g.fb.possess === 'away' ? g.fb : null, od.away) +
     rowHTML(g.home, g, seg ? seg.h : null, g.fb && g.fb.possess === 'home' ? g.fb : null, od.home) +
-    '</div>' + gsum + '</div>' +
+    '</div></div>' +
     od.below +
-    ((kind === 'soccer' || kind === 'periods') ? '' : lsTable(g, kind, !!opts.track, lg.noSplit)) +
+    ((kind === 'soccer' || kind === 'periods') ? '' : lsTable(g, kind, !!opts.track, !state.sSeg)) +
     '</div>';
 }
 function liveCount(lgKey, ds) {
@@ -2354,8 +2368,17 @@ function liveCount(lgKey, ds) {
   for (i = 0; i < e.games.length; i++) { if (e.games[i].state === 'in') c++; }
   return c;
 }
+/* tabs are automatic: only the leagues with at least one game on the viewed day */
+function leaguesWithGames(ds) {
+  var out = [], i, e;
+  for (i = 0; i < LEAGUES.length; i++) {
+    e = load(LEAGUES[i].key, ds);
+    if (e && e.games && e.games.length) out.push(LEAGUES[i]);
+  }
+  return out;
+}
 function renderTabs() {
-  var ds = ymd(state.date), html = '', act = activeLeagues(), tabs = $('tabs'), i;
+  var ds = ymd(state.date), html = '', act = leaguesWithGames(ds), tabs = $('tabs'), i;
   for (i = 0; i < act.length; i++) {
     var lg = act[i];
     html += '<button data-lg="' + lg.key + '" class="' + (lg.key === state.league ? 'on' : '') + '">' +
@@ -2366,70 +2389,13 @@ function renderTabs() {
   tabs.scrollLeft = sl;
   /* with more tabs than fit, the strip scrolls sideways: keep the current one on screen */
   var on = tabs.querySelector('button.on');
+  tabs.style.display = act.length ? '' : 'none';
   if (on) {
     var l = on.offsetLeft, r = l + on.offsetWidth;
     if (l < tabs.scrollLeft) tabs.scrollLeft = Math.max(0, l - 6);
     else if (r > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = r - tabs.clientWidth + 6;
   }
 }
-/* ---------- add / remove leagues ----------
-   Switching a league off drops it from the tabs and from every sync path
-   (see activeLeagues) -- nothing is fetched or refreshed for it again until
-   it's switched back on. Switching one on queues a full sync of just that
-   league when the sheet closes, so it fills in straight away. */
-var sheetAdded = [];       /* leagues switched on since the sheet opened */
-var sheetPushed = false;   /* a history entry is holding the sheet open, so Android's Back closes it */
-function renderSheet() {
-  var html = '', n = activeLeagues().length, i;
-  for (i = 0; i < LEAGUES.length; i++) {
-    var lg = LEAGUES[i], on = !!state.on[lg.key], lock = on && n === 1;
-    html += '<button class="lrow' + (on ? ' on' : '') + '" data-key="' + lg.key + '" role="switch" aria-checked="' + on + '"' +
-      (lock ? ' disabled' : '') + '>' +
-      '<span class="ltxt"><span class="ln">' + esc(lg.label) + '</span><span class="ld">' + esc(lg.desc) + '</span></span>' +
-      '<span class="sw"><i></i></span></button>';
-  }
-  $('leagueList').innerHTML = html;
-  $('sheetNote').textContent = n === 1
-    ? 'At least one league has to stay on.'
-    : 'Turn leagues on or off. A league that\u2019s off isn\u2019t synced at all \u2014 no scores or schedules are fetched for it until you turn it back on.';
-}
-function toggleLeague(key) {
-  var i;
-  if (state.on[key]) {
-    if (activeLeagues().length <= 1) return;          /* can't switch the last one off */
-    delete state.on[key];
-    for (i = sheetAdded.length - 1; i >= 0; i--) { if (sheetAdded[i] === key) sheetAdded.splice(i, 1); }
-    if (state.league === key) state.league = activeLeagues()[0].key;
-  } else {
-    state.on[key] = 1;
-    sheetAdded.push(key);
-  }
-  savePrefs();
-  renderSheet();
-  render();
-}
-function openSheet() {
-  if (state.sheet || state.osheet || state.track) return;
-  state.sheet = true;
-  sheetAdded = [];
-  renderSheet();
-  $('sheet').className = 'show';
-  try { history.pushState({ sheet: 1 }, ''); sheetPushed = true; } catch (e) { sheetPushed = false; }
-}
-function closeSheet() {
-  if (!state.sheet) return;
-  state.sheet = false;
-  $('sheet').className = '';
-  var add = [], i;
-  for (i = 0; i < sheetAdded.length; i++) {
-    if (state.on[sheetAdded[i]] && add.indexOf(sheetAdded[i]) === -1) add.push(sheetAdded[i]);
-  }
-  sheetAdded = [];
-  if (sheetPushed) { sheetPushed = false; try { history.back(); } catch (e) {} }
-  render();
-  if (add.length) syncAll(add);       /* only the leagues just switched on */
-}
-
 /* remember which line-score panels the user opened/closed, so
    live re-renders don't undo their taps */
 function detailStates() {
@@ -2510,6 +2476,9 @@ function renderTrack() {
 function render() {
   if (state.track) { renderTrack(); return; }
   var ds = ymd(state.date);
+  var avail = leaguesWithGames(ds), ai, inAv = false;
+  for (ai = 0; ai < avail.length; ai++) { if (avail[ai].key === state.pref) inAv = true; }
+  state.league = inAv ? state.pref : (avail.length ? avail[0].key : state.pref);
   var lg = leagueOf(state.league);
   $('dateLabel').textContent = dateLabel(state.date);
   $('todayBtn').disabled = isToday(state.date);
@@ -2528,6 +2497,7 @@ function render() {
   var oddsDay = state.odds ? loadOdds(lg.key, ds) : null;
   if (state.odds) computeAV();
   renderBookUI();
+  renderViewUI();
   updateMeta();
 
   var banner = $('banner');
@@ -2537,6 +2507,11 @@ function render() {
   else { banner.textContent = ''; banner.className = ''; }
 
   var main = $('games');
+  if (!avail.length) {
+    var cached = false, ci;
+    for (ci = 0; ci < LEAGUES.length; ci++) { if (load(LEAGUES[ci].key, ds)) cached = true; }
+    if (cached) { setGames('<div class="empty"><div class="big">No games scheduled</div>None of the leagues have a game on this date.</div>'); return; }
+  }
   if (!entry) {
     var hint;
     if (!navigator.onLine) hint = 'Reconnect and tap <b>Sync all</b> \u2014 after that, this day stays readable offline.';
@@ -2560,20 +2535,12 @@ function render() {
 $('tabs').addEventListener('click', function (e) {
   var b = e.target && e.target.closest ? e.target.closest('button') : null;
   if (!b || !b.getAttribute('data-lg')) return;
-  state.league = b.getAttribute('data-lg');
+  state.league = state.pref = b.getAttribute('data-lg');
   savePrefs();
   render();
 });
-$('editBtn').addEventListener('click', openSheet);
-$('sheetDone').addEventListener('click', closeSheet);
-$('sheet').addEventListener('click', function (e) {
-  if (e.target === $('sheet')) { closeSheet(); return; }     /* tap on the dimmed backdrop */
-  var b = e.target && e.target.closest ? e.target.closest('.lrow') : null;
-  if (b && !b.disabled) toggleLeague(b.getAttribute('data-key'));
-});
-/* Android's Back button: pops the history entry openSheet pushed */
+/* Android's Back button: pops the history entry openOSheet pushed */
 window.addEventListener('popstate', function () {
-  if (state.sheet) { sheetPushed = false; closeSheet(); }
   if (state.osheet) { oSheetPushed = false; closeOSheet(); }
 });
 $('games').addEventListener('click', function (e) {
@@ -2595,9 +2562,9 @@ $('liveBtn').addEventListener('click', function () { setLive(!state.live); });
 $('oddsBtn').addEventListener('click', function () { setOdds(!state.odds); });
 $('allBtn').addEventListener('click', function () { setAllBooks(!state.allBooks); });
 $('srcBtn').addEventListener('click', openOSheet);
-$('perSeg').addEventListener('click', function (e) {
-  var b = e.target && e.target.closest ? e.target.closest('button') : null;
-  if (b && b.getAttribute('data-per')) setPeriod(b.getAttribute('data-per'));
+$('topbar').addEventListener('click', function (e) {
+  var b = e.target && e.target.closest ? e.target.closest('button[data-v]') : null;
+  if (b) setView(b.getAttribute('data-v'));
 });
 $('bookBtn').addEventListener('click', function () {
   var m = $('bookMenu');
@@ -2648,7 +2615,7 @@ $('osheet').addEventListener('input', function (e) {
 /* keep the odds inside the 15-minute freshness window: a minute tick re-reads them when 5 minutes old
    and refreshes the "updated Xm ago" labels; coming back to the app does the same at once */
 setInterval(function () {
-  if (!state.odds || document.hidden || state.track || state.sheet || state.osheet) return;
+  if (!state.odds || document.hidden || state.track || state.osheet) return;
   oddsSync(false);
   refreshAges();          /* labels only: a full render here is what made the page blink */
 }, 60000);
