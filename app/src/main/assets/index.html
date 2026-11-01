@@ -80,7 +80,7 @@ body.tracking #trackbar { display: flex; }
 .tracknote { font-size: 12px; color: #8b99a6; }
 .tracknote .tdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: #ff5a52; margin-right: 6px; animation: pulse 1.3s ease-in-out infinite; }
-body.tracking .datebar, body.tracking nav,
+body.tracking .datebar, body.tracking nav, body.tracking #totalBar,
 body.tracking #liveBtn, body.tracking #syncBtn { display: none; }
 
 /* ---- date strip ---- */
@@ -102,8 +102,13 @@ nav { display: flex; gap: 6px; padding: 10px 14px; background: #0c1014;
 #tabs { flex: 1; min-width: 0; display: flex; gap: 6px; position: relative;
   overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 #tabs::-webkit-scrollbar { display: none; }
+#totalBar { padding: 8px 14px 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8b99a6; }
+#totalBar b { color: #ffb424; font-size: 14px; }
+#tabs button .tl, #tabs button .tc { display: block; line-height: 1.15; }
+#tabs button .tc { font-size: 11px; font-weight: 700; letter-spacing: 0; color: #8b99a6; text-transform: none; }
+#tabs button.on .tc { color: #ffb424; }
 #tabs button {
-  flex: 1 0 auto; min-width: 44px; min-height: 44px; border-radius: 8px; padding: 0 8px;
+  flex: 1 0 auto; min-width: 44px; min-height: 48px; border-radius: 8px; padding: 0 8px;
   border: 1px solid #26303a; color: #8b99a6;
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
   position: relative;
@@ -543,6 +548,7 @@ body.hasodds #metaLine { min-height: 32px; }
   <button id="todayBtn">Today</button>
 </div>
 
+<div id="totalBar"></div>
 <nav>
   <div id="tabs"></div>
 </nav>
@@ -2377,12 +2383,15 @@ function leaguesWithGames(ds) {
   }
   return out;
 }
+function gamesIn(key, ds) { var e = load(key, ds); return e && e.games ? e.games.length : 0; }
 function renderTabs() {
-  var ds = ymd(state.date), html = '', act = leaguesWithGames(ds), tabs = $('tabs'), i;
+  var ds = ymd(state.date), html = '', act = leaguesWithGames(ds), tabs = $('tabs'), i, total = 0;
   for (i = 0; i < act.length; i++) {
     var lg = act[i];
     html += '<button data-lg="' + lg.key + '" class="' + (lg.key === state.league ? 'on' : '') + '">' +
-      lg.label + (liveCount(lg.key, ds) > 0 ? '<span class="livecount"></span>' : '') + '</button>';
+      '<span class="tl">' + lg.label + '</span><span class="tc num">(' + gamesIn(lg.key, ds) + ')</span>' +
+      (liveCount(lg.key, ds) > 0 ? '<span class="livecount"></span>' : '') + '</button>';
+    total += gamesIn(lg.key, ds);
   }
   var sl = tabs.scrollLeft;
   tabs.innerHTML = html;
@@ -2390,6 +2399,8 @@ function renderTabs() {
   /* with more tabs than fit, the strip scrolls sideways: keep the current one on screen */
   var on = tabs.querySelector('button.on');
   tabs.style.display = act.length ? '' : 'none';
+  $('totalBar').style.display = act.length ? '' : 'none';
+  $('totalBar').innerHTML = '<b class="num">' + total + '</b> game' + (total === 1 ? '' : 's') + ' scheduled across ' + act.length + ' league' + (act.length === 1 ? '' : 's');
   if (on) {
     var l = on.offsetLeft, r = l + on.offsetWidth;
     if (l < tabs.scrollLeft) tabs.scrollLeft = Math.max(0, l - 6);
@@ -2524,8 +2535,7 @@ function render() {
     return;
   }
   var keep = detailStates();
-  var n = entry.games.length;
-  var html = '<div class="gcount num"><b>' + n + '</b> ' + esc(lg.label) + ' game' + (n === 1 ? '' : 's') + ' scheduled</div>', i;
+  var html = '', i;
   var oi = { oddsDay: oddsDay, isOddsDay: isToday(state.date) };
   for (i = 0; i < entry.games.length; i++) { html += cardHTML(entry.games[i], lg, oi); }
   setGames(html, keep);
