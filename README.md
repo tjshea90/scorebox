@@ -41,6 +41,24 @@ keystore/scorebox-release.jks               release signing key (see Releases)
 .github/workflows/build-release.yml         CI: builds + publishes the APK
 ```
 
+## College basketball filter
+
+CBB only lists games the major books actually price: both teams must be
+Division I (they carry a `conferenceId` in ESPN's feed). Exhibitions and
+"buy" games against D-II / NAIA / club sides never get a line at DraftKings,
+FanDuel, BetMGM, Caesars or Pinnacle — in a full-slate sample every game without
+a line had a non-D-I team, and 116 of 119 D-I vs D-I games had one (the rest
+were live/final, when ESPN drops its line). A game ESPN does attach a line to
+is always kept.
+
+## Odds downloads
+
+With **Odds** off, nothing odds-related is ever requested (pull to refresh
+included). With it on, today's lines are always kept fresh, and when another
+day's tab is open that day's lines are downloaded too (Pinnacle's league feed
+is shared between the two). Settings (Scores / Odds views, Sources, books,
+**Games left** counter) live behind the gear button to keep the header small.
+
 ## Odds (optional)
 
 The **Odds** button under the header turns on today's betting lines, one block

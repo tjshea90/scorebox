@@ -36,7 +36,7 @@ button:focus-visible, summary:focus-visible { outline: 2px solid #ffb424; outlin
 header {
   background: #10151b;
   border-bottom: 1px solid #26303a;
-  padding: 10px 14px 8px;
+  padding: 6px 12px 6px;
 }
 .bar { display: flex; align-items: center; gap: 8px; }
 .wordmark {
@@ -46,9 +46,9 @@ header {
 .wordmark small { color: #8b99a6; letter-spacing: .18em; font-weight: 600; }
 .spacer { flex: 1; }
 #liveBtn {
-  min-height: 40px; padding: 0 12px; border-radius: 8px;
+  min-height: 34px; padding: 0 10px; border-radius: 8px;
   border: 1px solid #26303a; color: #8b99a6; font-weight: 800;
-  letter-spacing: .06em; text-transform: uppercase; font-size: 13px;
+  letter-spacing: .05em; text-transform: uppercase; font-size: 12px;
 }
 #liveBtn .ldot { display: none; width: 8px; height: 8px; border-radius: 50%;
   background: #ff5a52; margin-right: 7px; vertical-align: 1px;
@@ -56,14 +56,14 @@ header {
 #liveBtn.on { border-color: #ff5a52; color: #ff7a72; background: rgba(255,90,82,.08); }
 #liveBtn.on .ldot { display: inline-block; }
 #syncBtn {
-  min-height: 40px; padding: 0 14px; border-radius: 8px;
+  min-height: 34px; padding: 0 12px; border-radius: 8px;
   background: #ffb424; color: #191104; font-weight: 800;
-  letter-spacing: .06em; text-transform: uppercase; font-size: 13px;
+  letter-spacing: .05em; text-transform: uppercase; font-size: 12px;
 }
 #syncBtn:active { transform: translateY(1px); }
 #syncBtn[disabled] { opacity: .55; }
 .meta {
-  margin-top: 6px; font-size: 12px; color: #8b99a6;
+  margin-top: 3px; font-size: 11px; color: #8b99a6;
   display: flex; align-items: center; gap: 6px; min-height: 16px;
 }
 .netdot { width: 8px; height: 8px; border-radius: 50%; background: #46c87f; flex: none; }
@@ -80,13 +80,13 @@ body.tracking #trackbar { display: flex; }
 .tracknote { font-size: 12px; color: #8b99a6; }
 .tracknote .tdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
   background: #ff5a52; margin-right: 6px; animation: pulse 1.3s ease-in-out infinite; }
-body.tracking .datebar, body.tracking nav, body.tracking #totalBar,
+body.tracking .datebar, body.tracking nav, body.tracking #totCount, body.tracking #opts,
 body.tracking #liveBtn, body.tracking #syncBtn { display: none; }
 
 /* ---- date strip ---- */
-.datebar { display: flex; align-items: center; gap: 8px; padding: 10px 14px 0; }
+.datebar { display: flex; align-items: center; gap: 8px; padding: 6px 12px 0; }
 .datebar button {
-  min-width: 44px; min-height: 40px; border-radius: 8px;
+  min-width: 44px; min-height: 34px; border-radius: 8px;
   border: 1px solid #26303a; color: #e9eef2; font-size: 18px; line-height: 1;
 }
 #todayBtn { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: #8b99a6; padding: 0 12px; }
@@ -97,25 +97,27 @@ body.tracking #liveBtn, body.tracking #syncBtn { display: none; }
    #tabs holds only the leagues the user has switched on and scrolls
    sideways when there are more of them than fit; the Edit button beside
    it stays put and opens the add / remove sheet. */
-nav { display: flex; gap: 6px; padding: 10px 14px; background: #0c1014;
+nav { display: flex; gap: 6px; padding: 6px 12px; background: #0c1014;
   border-bottom: 1px solid #26303a; }
 #tabs { flex: 1; min-width: 0; display: flex; gap: 6px; position: relative;
   overflow-x: auto; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 #tabs::-webkit-scrollbar { display: none; }
-#totalBar { padding: 8px 14px 0; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8b99a6; }
-#totalBar b { color: #ffb424; font-size: 14px; }
-#tabs button .tl, #tabs button .tc { display: block; line-height: 1.15; }
+#totCount { color: #ffb424; font-weight: 800; white-space: nowrap; }
+#totCount:not(:empty)::after { content: " \00b7"; color: #8b99a6; font-weight: 400; }
+/* one-line tabs: "NBA (4)" */
+#tabs button .tl, #tabs button .tc { display: inline; line-height: 1.15; }
+#tabs button .tc { margin-left: 4px; }
 #tabs button .tc { font-size: 11px; font-weight: 700; letter-spacing: 0; color: #8b99a6; text-transform: none; }
 #tabs button.on .tc { color: #ffb424; }
 #tabs button {
-  flex: 1 0 auto; min-width: 44px; min-height: 48px; border-radius: 8px; padding: 0 8px;
+  flex: 1 0 auto; min-width: 44px; min-height: 36px; border-radius: 8px; padding: 0 8px;
   border: 1px solid #26303a; color: #8b99a6;
   font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
   position: relative;
 }
 #tabs button.on { color: #ffb424; border-color: #ffb424; background: rgba(255,180,36,.08); }
 #tabs button .livecount {
-  position: absolute; top: 6px; right: 8px;
+  position: absolute; top: 4px; right: 5px;
   min-width: 8px; height: 8px; border-radius: 50%;
   background: #ff5a52;
 }
@@ -200,6 +202,10 @@ main { padding: 6px 14px 40px; max-width: 720px; margin: 0 auto; }
   background: #161c22; border: 1px solid #26303a; border-radius: 12px;
   padding: 12px 14px; margin-top: 12px;
 }
+.remn { position: absolute; top: 3px; right: 9px; font-size: 10px; font-weight: 800; line-height: 1;
+  color: #8b99a6; letter-spacing: .02em; pointer-events: none; }
+.card { position: relative; }
+.card.hasrem .trk { margin-top: 10px; }
 .gcount { margin: 12px 2px -4px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
 .gcount b { color: #ffb424; font-size: 14px; }
 .card .top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
@@ -343,7 +349,14 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
   border: 1px solid #26303a; color: #8b99a6; font-weight: 800; font-size: 11px;
   letter-spacing: .06em; text-transform: uppercase;
 }
-#srcBtn { margin-left: auto; }
+#oddsBtn, #optBtn { min-height: 34px; }
+#optBtn { width: 36px; padding: 0; font-size: 16px; letter-spacing: 0; line-height: 1; }
+#optBtn.on { border-color: #ffb424; color: #ffb424; background: rgba(255,180,36,.08); }
+/* settings panel: closed until the gear is tapped, so the schedule gets the screen */
+#opts { display: none; padding-bottom: 2px; }
+body.optsopen #opts { display: block; }
+.orow { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+#remBtn.on { border-color: #46c87f; color: #46c87f; background: rgba(70,200,127,.08); }
 .mbtn.on { border-color: #46c87f; color: #46c87f; background: rgba(70,200,127,.08); }
 body.tracking .mbtn { display: none; }
 /* master odds controls: Full game / Halftime switch + sportsbook picker */
@@ -374,8 +387,6 @@ body.tracking #vrow { display: none; }
 #bookMenu .bmi .bc { margin-left: auto; font-size: 11px; color: #5d6a76; }
 .meta { min-height: 16px; }
 #metaLine { font-variant-numeric: tabular-nums; flex: 1 1 0; min-width: 0; }
-body.hasodds #metaLine { min-height: 32px; }
-.mbtns { flex: 1 0 100%; display: flex; align-items: center; gap: 6px; }
 .odds { margin-top: 10px; padding-top: 8px; border-top: 1px solid #1d252d; }
 .odds.none { color: #5d6a76; font-size: 12px; border-top: 0; padding-top: 0; }
 .oh { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 2px;
@@ -414,6 +425,10 @@ body.hasodds #metaLine { min-height: 32px; }
 .kst { font-size: 12px; color: #8b99a6; margin-top: 5px; }
 .kst .good { color: #46c87f; } .kst .warn { color: #ffb424; } .kst .bad { color: #ff7a72; }
 
+/* with odds on the name column stretches, so the Live / Final / Halftime header row stretches
+   the same way -- otherwise its labels stay mid-card while the scores sit at the far right */
+.hasodds .f5head .nsp { flex: 1 1 0; }
+.hasodds .f5head .tsp { width: 34px; }
 /* pre-game: a sportsbook-style board -- away team over home team, Spread / Total / Money
    buttons to the right (line on top, price under it, plus prices in green).  With
    several books a chip row picks which book the board shows. */
@@ -525,12 +540,17 @@ body.hasodds #metaLine { min-height: 32px; }
   <div class="bar">
     <div class="wordmark">Score<small>Box</small></div>
     <div class="spacer"></div>
-    <button id="liveBtn"><span class="ldot"></span>Live sync</button>
-    <button id="syncBtn">Sync all</button>
+    <button id="oddsBtn" class="mbtn" aria-pressed="false">Odds off</button>
+    <button id="liveBtn"><span class="ldot"></span>Live</button>
+    <button id="syncBtn">Sync</button>
+    <button id="optBtn" class="mbtn" aria-label="Settings" aria-expanded="false">&#9881;</button>
   </div>
-  <div class="meta"><span class="netdot" id="netDot"></span><span id="metaLine">—</span><span id="buildTag"></span><div class="mbtns"><button id="srcBtn" class="mbtn">Sources</button><button id="allBtn" class="mbtn" style="display:none">All books</button><button id="oddsBtn" class="mbtn" aria-pressed="false">Odds off</button></div></div>
-  <div id="vrow"><span class="vlab">Scores</span><div class="vseg" role="group" aria-label="Scores shown"><button data-v="sFull">Full game</button><button data-v="sSeg">Halftime</button></div></div>
-  <div id="mrow"><span class="vlab">Odds</span><div id="perSeg" class="vseg" role="group" aria-label="Odds shown"><button data-v="oFull">Full game</button><button data-v="oSeg">Halftime</button></div><button id="bookBtn" class="mbtn" aria-haspopup="listbox" aria-expanded="false">Books</button></div>
+  <div class="meta"><span class="netdot" id="netDot"></span><span id="totCount"></span><span id="metaLine">—</span><span id="buildTag"></span></div>
+  <div id="opts">
+    <div id="vrow"><span class="vlab">Scores</span><div class="vseg" role="group" aria-label="Scores shown"><button data-v="sFull">Full game</button><button data-v="sSeg">Halftime</button></div></div>
+    <div id="mrow"><span class="vlab">Odds</span><div id="perSeg" class="vseg" role="group" aria-label="Odds shown"><button data-v="oFull">Full game</button><button data-v="oSeg">Halftime</button></div><button id="bookBtn" class="mbtn" aria-haspopup="listbox" aria-expanded="false">Books</button></div>
+    <div class="orow"><button id="srcBtn" class="mbtn">Sources</button><button id="allBtn" class="mbtn" style="display:none">All books</button><button id="remBtn" class="mbtn" aria-pressed="false">Games left: on</button></div>
+  </div>
   <div id="bookMenu" role="listbox" aria-multiselectable="true"></div>
 </header>
 
@@ -548,7 +568,6 @@ body.hasodds #metaLine { min-height: 32px; }
   <button id="todayBtn">Today</button>
 </div>
 
-<div id="totalBar"></div>
 <nav>
   <div id="tabs"></div>
 </nav>
@@ -589,6 +608,13 @@ var PFX = 'sbx2:';
    sk              -> the league's sport key on PropLine / The Odds API.
    seg             -> 'f5' (first 5 innings) or 'h1' (first half): the second
                       odds line. Leagues without one show the full game only.
+   d1: true        -> only games the major books actually price: both teams must be
+                      Division I members (they carry a conferenceId in ESPN's feed).
+                      A D-I team hosting a D-II / NAIA / club side (exhibitions, "buy"
+                      games) never gets a line at DraftKings, FanDuel, BetMGM, Caesars
+                      or Pinnacle; in a full-slate sample every game without a line
+                      involved a non-D-I team and 116 of 119 D-I vs D-I games had one
+                      (the 3 others were live / final, when ESPN drops its line).
    noMl            -> no money line in the odds (NBA, WNBA, NFL, CFB, CBB).
    pro             -> team names are city + nickname (odds matching may fall
                       back to the nickname).
@@ -614,7 +640,7 @@ var LEAGUES = [
      cap, which silently truncates a big Saturday (139 games) at 100. */
   { key: 'cbb',  label: 'CBB',  desc: 'College basketball · Division I (men’s)',
     paths: ['basketball/mens-college-basketball'], kind: 'halves',
-    query: '&groups=50&limit=400', pin: 493, sk: 'basketball_ncaab', seg: 'h1', noMl: true },
+    query: '&groups=50&limit=400', d1: true, pin: 493, sk: 'basketball_ncaab', seg: 'h1', noMl: true },
   { key: 'nhl',  label: 'NHL',  desc: 'Hockey',
     paths: ['hockey/nhl'],      kind: 'periods',
     noSplit: true, pin: 1456, sk: 'icehockey_nhl', pro: true }
@@ -666,6 +692,8 @@ var state = {
   sFull: true, sSeg: true,    /* show full-game scores / halftime (F5, 1st period) scores */
   oFull: true, oSeg: false,   /* show full-game odds / halftime (F5) odds */
   books: [],        /* MASTER book picks (empty = auto: Pinnacle first, as before) */
+  rem: true,        /* schedule cards show how many games are still below them */
+  opts: false,      /* the settings panel under the header is open */
   osrc: {},         /* odds source id -> false when switched off (missing = on) */
   bk: {},           /* game id -> the book picked in its chip row (in memory only) */
   part: {},         /* game id -> 'seg' while its half / first-5 line is showing */
@@ -897,6 +925,8 @@ function parseScoreboard(json, lg) {
     };
     var eo = parseEspnOdds(comp.odds);   /* ESPN's embedded line (DraftKings): backs up the odds feature */
     if (eo) g.eo = eo;
+    /* books don't price games against non-Division-I opponents: drop them (unless a line exists anyway) */
+    if (lg.d1 && !eo && !(home.team && home.team.conferenceId && away.team && away.team.conferenceId)) continue;
     if (lg.kind === 'innings') {
       if (g.state === 'in' && comp.situation) {
         var sit = comp.situation;
@@ -1206,7 +1236,7 @@ function setTrack(t) {
 function savePrefs() {
   var keys = [], act = activeLeagues(), i;
   for (i = 0; i < act.length; i++) { keys.push(act[i].key); }
-  store.set(PFX + 'prefs', { league: state.pref, sFull: state.sFull, sSeg: state.sSeg, oFull: state.oFull, oSeg: state.oSeg, leagues: keys, odds: !!state.odds, allBooks: !!state.allBooks, period: state.period, books: state.books, osrc: state.osrc });
+  store.set(PFX + 'prefs', { league: state.pref, sFull: state.sFull, sSeg: state.sSeg, oFull: state.oFull, oSeg: state.oSeg, leagues: keys, odds: !!state.odds, allBooks: !!state.allBooks, period: state.period, books: state.books, osrc: state.osrc, rem: !!state.rem });
 }
 function loadPrefs() {
   var p = store.get(PFX + 'prefs') || {}, i, any = false;
@@ -1229,6 +1259,7 @@ function loadPrefs() {
   state.allBooks = p.allBooks === true;
   state.books = (p.books instanceof Array) ? p.books.filter(function (x) { return typeof x === 'string'; }) : [];
   state.osrc = (p.osrc && typeof p.osrc === 'object') ? p.osrc : {};
+  state.rem = p.rem !== false;
 }
 
 /* ---------- odds ----------
@@ -1251,7 +1282,7 @@ function loadPrefs() {
      cache as the schedules, so they read offline and only change on the next
      successful download. Once a game starts its lines are frozen: they are the
      lines the spread and total results are judged against. */
-var OD = { busy: false, err: '' };
+var OD = { busy: false, err: '', pending: false, again: false };
 /* a failure that just means "no connection right now": never shown as an error -- the header
    already says how old the saved data is */
 function netLike(msg) {
@@ -1764,13 +1795,15 @@ function oddsLocal(lg, ds) {
   if (!sb || !sb.games || !sb.games.length) return false;
   return applyBooks(lg, ds, sb.games, null, null, 0, sb.t);
 }
-function oddsTask(w, ds) {
-  var lg = w.lg, sb = w.sb, od = w.od;
+function oddsTask(w, memo) {
+  var lg = w.lg, sb = w.sb, od = w.od, ds = w.ds;
   if (w.id === 'pinnacle') {
-    return Promise.all([
+    /* Pinnacle's feed covers the whole league, so today and the viewed day share one download */
+    var pk = memo['pin' + lg.pin] || (memo['pin' + lg.pin] = Promise.all([
       fetchJSON(ODDS_API + 'leagues/' + lg.pin + '/matchups'),
       fetchJSON(ODDS_API + 'leagues/' + lg.pin + '/markets/straight')
-    ]).then(function (r) {
+    ]));
+    return pk.then(function (r) {
       applyBooks(lg, ds, sb.games, pinPerGame(lg, sb.games, r[0] instanceof Array ? r[0] : [], r[1] instanceof Array ? r[1] : []), 'pinnacle', Date.now(), sb.t);
     });
   }
@@ -1782,39 +1815,49 @@ function sourceLabel(id) {
   for (i = 0; i < SOURCES.length; i++) { if (SOURCES[i].id === id) return SOURCES[i].name; }
   return id;
 }
+/* Which days get odds: always today, plus the day whose tab is open when that is a different
+   (not already finished) day. Nothing at all when the Odds toggle is off. */
+function oddsDays() {
+  var now = new Date(), today = ymd(now), view = ymd(state.date), out = [today];
+  if (view !== today) out.push(view);
+  return out;
+}
 function oddsSync(force) {
-  if (!state.odds) return;
-  var now = new Date(), ds = ymd(now), yds = ymd(addDays(now, -1)), act = activeLeagues();
-  var work = [], notes = {}, changed = false, i, j, lg, sb, od, pre, ids, k, due;
+  if (!state.odds) return;                      /* Odds off: no odds requests, ever */
+  if (OD.busy) { OD.again = OD.again || !!force; OD.pending = true; return; }
+  var now = new Date(), yds = ymd(addDays(now, -1)), act = activeLeagues(), days = oddsDays();
+  var work = [], notes = {}, changed = false, i, j, d, lg, sb, od, pre, ids, k, ds;
   function isDue(id, ms) { var t = od && od.st && od.st[id]; return force || !t || Date.now() - t >= ms; }
   for (i = 0; i < act.length; i++) {
     lg = act[i];
     if (oddsLocal(lg, yds)) changed = true;
-    if (oddsLocal(lg, ds)) changed = true;
-    sb = load(lg.key, ds);
-    if (!sb || !sb.games) continue;
-    pre = false;
-    for (j = 0; j < sb.games.length; j++) { if (sb.games[j].state === 'pre' && !sb.games[j].flag) { pre = true; break; } }
-    if (!pre) continue;                         /* nothing left to bet ahead of: no download */
-    od = loadOdds(lg.key, ds);
-    if (lg.pin && srcOn('pinnacle') && isDue('pinnacle', ODDS_REFRESH_MS)) work.push({ lg: lg, sb: sb, od: od, id: 'pinnacle', force: force });
-    ids = ['propline', 'oddsapi'];
-    for (k = 0; k < ids.length; k++) {
-      if (!lg.sk || !srcOn(ids[k]) || !srcKeys(ids[k]).length) continue;
-      if (!isDue(ids[k], KEYED_REFRESH_MS)) continue;
-      if (!usableKeys(ids[k]).length) { notes[ids[k]] = 'every key is used up or limited right now'; continue; }
-      work.push({ lg: lg, sb: sb, od: od, id: ids[k], force: force });
+    for (d = 0; d < days.length; d++) {
+      ds = days[d];
+      if (oddsLocal(lg, ds)) changed = true;
+      sb = load(lg.key, ds);
+      if (!sb || !sb.games) continue;
+      pre = false;
+      for (j = 0; j < sb.games.length; j++) { if (sb.games[j].state === 'pre' && !sb.games[j].flag) { pre = true; break; } }
+      if (!pre) continue;                       /* nothing left to bet ahead of: no download */
+      od = loadOdds(lg.key, ds);
+      if (lg.pin && srcOn('pinnacle') && isDue('pinnacle', ODDS_REFRESH_MS)) work.push({ lg: lg, sb: sb, od: od, ds: ds, id: 'pinnacle', force: force });
+      ids = ['propline', 'oddsapi'];
+      for (k = 0; k < ids.length; k++) {
+        if (!lg.sk || !srcOn(ids[k]) || !srcKeys(ids[k]).length) continue;
+        if (!isDue(ids[k], KEYED_REFRESH_MS)) continue;
+        if (!usableKeys(ids[k]).length) { notes[ids[k]] = 'every key is used up or limited right now'; continue; }
+        work.push({ lg: lg, sb: sb, od: od, ds: ds, id: ids[k], force: force });
+      }
     }
   }
   if (changed) render();
   if (!work.length && !Object.keys(notes).length) return;
-  if (OD.busy) return;
-  OD.busy = true; OD.err = ''; OD.force = !!force;
-  var fails = {};
+  OD.busy = true; OD.err = ''; OD.force = !!force; OD.pending = false; OD.again = false;
+  var fails = {}, memo = {};
   for (k in notes) { fails[sourceLabel(k)] = notes[k]; }
   var jobs = work.map(function (w) {
     return function () {
-      return oddsTask(w, ds).catch(function (e) {
+      return oddsTask(w, memo).catch(function (e) {
         var m = String((e && e.message) || e || '');
         if (!netLike(m)) fails[sourceLabel(w.id)] = m;
       });
@@ -1824,9 +1867,10 @@ function oddsSync(force) {
     OD.busy = false;
     var parts = [], n;
     for (n in fails) { parts.push(n + ': ' + fails[n]); }
-    if (parts.length) OD.err = 'Odds not fully refreshed — showing the saved lines. ' + parts.join(' · ');
+    if (parts.length) OD.err = 'Odds not fully refreshed \u2014 showing the saved lines. ' + parts.join(' \u00b7 ');
     render();
     if (state.osheet) renderOSheet();           /* key statuses (in use / used up) after this round */
+    if (OD.pending && state.odds) oddsSync(OD.again);   /* a day was opened while this round ran */
   });
 }
 function setOdds(on) {
@@ -1853,7 +1897,7 @@ function oddsWant(lg) {
 }
 function bookHas(b, lg) { return (state.oFull && !!b.full) || (state.oSeg && !!lg.seg && !!b.seg); }
 function oddsWhat() { return state.oFull && state.oSeg ? 'full-game or halftime' : (state.oSeg ? 'halftime / 1st-5-innings' : 'full-game'); }function computeAV() {
-  var act = activeLeagues(), ds = ymd(new Date()), cnt = {}, names = {}, i, lg, od, gid, e, k, b, seen, list = [], eff = [];
+  var act = activeLeagues(), ds = ymd(state.date), cnt = {}, names = {}, i, lg, od, gid, e, k, b, seen, list = [], eff = [];
   for (i = 0; i < act.length; i++) {
     lg = act[i];
     if (!oddsWant(lg).length) continue;
@@ -1885,7 +1929,7 @@ function renderBookUI() {
   var open = $('bookMenu').className === 'show';
   $('bookBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
   if (open) {
-    var h = '<div class="bmh">' + 'Books with ' + oddsWhat() + ' lines today' + ' \u2014 tap to pick one or more</div>';
+    var h = '<div class="bmh">' + 'Books with ' + oddsWhat() + ' lines ' + (isToday(state.date) ? 'today' : 'this day') + ' \u2014 tap to pick one or more</div>';
     h += '<button class="bmi' + (AV.eff.length ? '' : ' on') + '" data-bk="" role="option"><span class="bx"></span>Auto (Pinnacle first)</button>';
     for (i = 0; i < AV.list.length; i++) {
       h += '<button class="bmi' + (AV.eff.indexOf(AV.list[i].k) >= 0 ? ' on' : '') + '" data-bk="' + esc(AV.list[i].k) + '" role="option"><span class="bx"></span>' + esc(AV.list[i].n) + '<span class="bc">' + AV.list[i].c + ' games</span></button>';
@@ -2354,7 +2398,9 @@ function cardHTML(g, lg, opts) {
       '</div>'
     : '';
   var od = oddsParts(g, lg, opts.oddsDay && opts.oddsDay.games ? opts.oddsDay.games[g.id] : null, !!opts.isOddsDay);
-  return '<div class="card' + (g.state === 'post' ? ' post' : '') + (opts.track ? ' track' : '') + '" data-id="' + esc(g.id) + '">' +
+  var remN = (!opts.track && state.rem && opts.remain != null) ? opts.remain : null;
+  return '<div class="card' + (g.state === 'post' ? ' post' : '') + (opts.track ? ' track' : '') + (remN != null ? ' hasrem' : '') + '" data-id="' + esc(g.id) + '">' +
+    (remN != null ? '<span class="remn num" title="Games below this one" aria-label="' + remN + ' more games below">' + remN + '</span>' : '') +
     '<div class="top"><div class="topleft">' + statusHTML(g) + stime + '</div>' + trk + '</div>' +
     atBatHTML(g.sit) +
     fbSitHTML(g) +
@@ -2399,8 +2445,7 @@ function renderTabs() {
   /* with more tabs than fit, the strip scrolls sideways: keep the current one on screen */
   var on = tabs.querySelector('button.on');
   tabs.style.display = act.length ? '' : 'none';
-  $('totalBar').style.display = act.length ? '' : 'none';
-  $('totalBar').innerHTML = '<b class="num">' + total + '</b> game' + (total === 1 ? '' : 's') + ' scheduled across ' + act.length + ' league' + (act.length === 1 ? '' : 's');
+  $('totCount').textContent = act.length ? total + ' game' + (total === 1 ? '' : 's') : '';
   if (on) {
     var l = on.offsetLeft, r = l + on.offsetWidth;
     if (l < tabs.scrollLeft) tabs.scrollLeft = Math.max(0, l - 6);
@@ -2451,7 +2496,6 @@ function updateMeta() {
   if (state.odds) {
     if (!lg.pin) meta += ' \u00b7 no odds for ' + lg.label;
     else if (oddsDay && oddsDay.t) meta += ' \u00b7 Odds ' + ago(oddsDay.t) + (OD.busy && OD.force ? ' (updating\u2026)' : '');
-    else if (!isToday(state.date)) meta += ' \u00b7 Odds: today only';
     else meta += ' \u00b7 Odds ' + (OD.busy ? 'downloading\u2026' : 'not downloaded yet');
   }
   if (!store.persistent) meta += ' \u00b7 storage blocked here: cache won\u2019t survive closing';
@@ -2504,6 +2548,12 @@ function render() {
   $('allBtn').textContent = state.allBooks ? 'Top 3 books' : 'Pinnacle only';
   $('oddsBtn').textContent = state.odds ? 'Odds on' : 'Odds off';
   $('oddsBtn').setAttribute('aria-pressed', state.odds ? 'true' : 'false');
+  $('remBtn').className = 'mbtn' + (state.rem ? ' on' : '');
+  $('remBtn').textContent = state.rem ? 'Games left: on' : 'Games left: off';
+  $('remBtn').setAttribute('aria-pressed', state.rem ? 'true' : 'false');
+  document.body.className = document.body.className.replace(/\s*\boptsopen\b/g, '') + (state.opts ? ' optsopen' : '');
+  $('optBtn').className = 'mbtn' + (state.opts ? ' on' : '');
+  $('optBtn').setAttribute('aria-expanded', state.opts ? 'true' : 'false');
   var entry = load(lg.key, ds);
   var oddsDay = state.odds ? loadOdds(lg.key, ds) : null;
   if (state.odds) computeAV();
@@ -2536,8 +2586,8 @@ function render() {
   }
   var keep = detailStates();
   var html = '', i;
-  var oi = { oddsDay: oddsDay, isOddsDay: isToday(state.date) };
-  for (i = 0; i < entry.games.length; i++) { html += cardHTML(entry.games[i], lg, oi); }
+  var oi = { oddsDay: oddsDay, isOddsDay: ds >= ymd(new Date()), remain: 0 };
+  for (i = 0; i < entry.games.length; i++) { oi.remain = entry.games.length - 1 - i; html += cardHTML(entry.games[i], lg, oi); }
   setGames(html, keep);
 }
 
@@ -2571,6 +2621,8 @@ $('syncBtn').addEventListener('click', function () { syncAll(); });   /* not bar
 $('liveBtn').addEventListener('click', function () { setLive(!state.live); });
 $('oddsBtn').addEventListener('click', function () { setOdds(!state.odds); });
 $('allBtn').addEventListener('click', function () { setAllBooks(!state.allBooks); });
+$('remBtn').addEventListener('click', function () { state.rem = !state.rem; savePrefs(); render(); });
+$('optBtn').addEventListener('click', function () { state.opts = !state.opts; render(); });
 $('srcBtn').addEventListener('click', openOSheet);
 $('topbar').addEventListener('click', function (e) {
   var b = e.target && e.target.closest ? e.target.closest('button[data-v]') : null;
@@ -2632,9 +2684,20 @@ setInterval(function () {
 document.addEventListener('visibilitychange', function () {
   if (!document.hidden && state.odds && !state.track) oddsSync(false);
 });
-$('prevDay').addEventListener('click', function () { state.date = addDays(state.date, -1); state.errors = []; render(); });
-$('nextDay').addEventListener('click', function () { state.date = addDays(state.date, 1); state.errors = []; render(); });
-$('todayBtn').addEventListener('click', function () { state.date = new Date(); state.errors = []; render(); });
+/* open another day: show it at once; a day with no stored schedule gets its schedule downloaded
+   (one cheap ESPN call per league), and with Odds on, that day's lines come down too -- today's are
+   always kept up to date as well (oddsSync handles both) */
+function goDay(d) {
+  state.date = d; state.errors = [];
+  render();
+  var ds = ymd(d), pairs = [], act = activeLeagues(), i;
+  for (i = 0; i < act.length; i++) { if (!load(act[i].key, ds)) pairs.push({ lg: act[i], ds: ds }); }
+  if (pairs.length && !state.syncing) runSync(pairs, true);
+  else if (state.odds) oddsSync(false);
+}
+$('prevDay').addEventListener('click', function () { goDay(addDays(state.date, -1)); });
+$('nextDay').addEventListener('click', function () { goDay(addDays(state.date, 1)); });
+$('todayBtn').addEventListener('click', function () { goDay(new Date()); });
 window.addEventListener('online', function () {
   render();
   if (state.track) trackTick(); else { syncToday(true); oddsSync(true); }
