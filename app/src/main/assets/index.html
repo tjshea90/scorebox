@@ -434,13 +434,13 @@ body.tracking #vrow { display: none; }
 .trow.hasodds .tname { flex: 0 1 132px; min-width: 0; overflow: hidden; }
 .trow.hasodds .tile { width: 34px; height: 34px; font-size: 11px; }
 .trow.hasodds + .trow.hasodds { margin-top: 2px; }
-.obx { display: flex; flex: 0 1 auto; min-width: 0; }
-.obd { display: flex; flex-direction: column; flex: 0 1 auto; min-width: 0; }
+.obx { display: flex; flex: none; }
+.obd { display: flex; flex-direction: column; flex: none; }
 .obd + .obd { margin-left: 10px; padding-left: 5px; border-left: 1px dashed rgba(255,180,36,.45); }
-.obtns { display: flex; flex: 0 1 auto; min-width: 0; }
-.ob2 { flex: 0 1 60px; min-width: 40px; margin-left: 5px; border-radius: 7px; background: #212a32; padding: 5px 0 4px;
+.obtns { display: flex; flex: none; }
+.ob2 { flex: none; width: 60px; margin-left: 5px; border-radius: 7px; background: #212a32; padding: 5px 0 4px;
   text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 44px; overflow: hidden; }
-.ob2.ml { flex-basis: 58px; }
+.ob2.ml { width: 58px; }
 .obt { font-size: 12px; font-weight: 700; color: #e9eef2; line-height: 1.25; white-space: nowrap; }
 .obp { font-size: 14px; font-weight: 800; color: #e9eef2; line-height: 1.25; white-space: nowrap; }
 .obp.pos { color: #46c87f; }
@@ -463,12 +463,21 @@ body.tracking #vrow { display: none; }
   border-top: 1px solid #1d252d; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
 .omore { color: #46c87f; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 8px 0 8px 12px; }
 @media (max-width: 430px) {
-  .ob2 { flex-basis: 54px; margin-left: 3px; } .ob2.ml { flex-basis: 52px; }
+  .ob2 { width: 54px; margin-left: 3px; } .ob2.ml { width: 52px; }
   .obt { font-size: 11px; } .obp { font-size: 13px; }
   .ohd .ob2 { font-size: 9px; letter-spacing: .03em; }
   .obc { margin-left: 3px; letter-spacing: .06em; }
   .obd + .obd { margin-left: 6px; padding-left: 3px; }
   .ohd { gap: 6px; }
+}
+/* six buttons (MLB: full game + first 5, each Spread / Total / Money) on a phone: tighter buttons so the
+   team name keeps a little room; the name column is what gives way, the buttons never overlap */
+@media (max-width: 560px) {
+  .o6 .ob2, .o6 .ob2.ml { width: 41px; margin-left: 2px; }
+  .o6 .obd + .obd { margin-left: 5px; padding-left: 3px; }
+  .o6 .obt { font-size: 10.5px; } .o6 .obp { font-size: 12px; }
+  .ohd .o6 .ob2 { font-size: 8px; letter-spacing: 0; }
+  .o6 .obc { margin-left: 2px; }
 }
 /* once the game is under way the lines shrink to a quiet footnote */
 .odds.mini .om { font-size: 11px; line-height: 1.55; }
@@ -588,7 +597,7 @@ body.tracking #vrow { display: none; }
 </div>
 <div id="banner"></div>
 <main id="games"></main>
-<footer>Scores via ESPN's public feed. League tabs appear by themselves for the leagues that have games on the day you're viewing. The Scores and Odds switches under the header choose whether full-game and / or halftime (first 5 innings, 1st period) results show. Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button); a pull to refresh re-downloads them all, and they are saved for offline reading. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. F5 = through 5 innings · HT = halftime.</footer>
+<footer>Scores via ESPN's public feed. League tabs appear by themselves for the leagues that have games on the day you're viewing. The Scores and Odds switches under the header choose whether full-game and / or halftime (first 5 innings, first half) results show; with both odds on, the full-game and halftime boards sit side by side in the middle of the card until the game starts, and a book you pick shows both. NHL is full game only (scores and odds). Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button); a pull to refresh re-downloads them all, and they are saved for offline reading. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. F5 = through 5 innings · HT = halftime.</footer>
 
 <div id="osheet" role="dialog" aria-modal="true" aria-labelledby="osheetTitle">
   <div class="sheetcard">
@@ -2230,9 +2239,10 @@ function oddsParts(g, lg, e, isDay) {
     aw += '<div class="obd">' + oddsCells(bd.p, 'a', bd.ml) + '</div>';
     hm += '<div class="obd">' + oddsCells(bd.p, 'h', bd.ml) + '</div>';
   }
-  res.head = '<div class="ohd"><span class="tsp"></span><span class="nsp"></span><div class="obx">' + hd + '</div></div>';
-  res.away = '<div class="obx">' + aw + '</div>';
-  res.home = '<div class="obx">' + hm + '</div>';
+  var oc = 'obx' + (dual && boards[0].ml && boards[1].ml ? ' o6' : '');
+  res.head = '<div class="ohd"><span class="tsp"></span><span class="nsp"></span><div class="' + oc + '">' + hd + '</div></div>';
+  res.away = '<div class="' + oc + '">' + aw + '</div>';
+  res.home = '<div class="' + oc + '">' + hm + '</div>';
   /* caption: which book(s) the boards come from, and how fresh the lines are */
   var cap = [], names = {}, nn = 0, t;
   for (j = 0; j < boards.length; j++) {
