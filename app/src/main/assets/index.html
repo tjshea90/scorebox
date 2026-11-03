@@ -425,24 +425,35 @@ body.tracking #vrow { display: none; }
 .kst { font-size: 12px; color: #8b99a6; margin-top: 5px; }
 .kst .good { color: #46c87f; } .kst .warn { color: #ffb424; } .kst .bad { color: #ff7a72; }
 
-/* only rows that carry an odds board stretch their name column; plain score rows keep the
-   scores right beside the names, and the Live / Final / Halftime header row matches them */
-/* pre-game: a sportsbook-style board -- away team over home team, Spread / Total / Money
-   buttons to the right (line on top, price under it, plus prices in green).  With
-   several books a chip row picks which book the board shows. */
-.trow.hasodds .tname { flex: 1 1 0; min-width: 0; }
+/* pre-game: a sportsbook-style board sits in the middle of the card exactly where the score
+   goes once the game starts -- right after the team names, away team over home team, Spread /
+   Total / Money buttons (line on top, price under it, plus prices in green).  With full game
+   AND halftime odds on, two boards sit side by side at full size: full game next to the
+   names, a dashed divider, halftime to its right.  The buttons shrink (down to a floor)
+   before the name column gives way, so a six-button MLB card still fits a phone. */
+.trow.hasodds .tname { flex: 0 1 132px; min-width: 0; overflow: hidden; }
 .trow.hasodds .tile { width: 34px; height: 34px; font-size: 11px; }
 .trow.hasodds + .trow.hasodds { margin-top: 2px; }
-.obtns { flex: none; display: flex; }
-.ob2 { flex: none; width: 60px; margin-left: 5px; border-radius: 7px; background: #212a32; padding: 5px 0 4px;
-  text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 44px; }
-.ob2.ml { width: 58px; }
+.obx { display: flex; flex: 0 1 auto; min-width: 0; }
+.obd { display: flex; flex-direction: column; flex: 0 1 auto; min-width: 0; }
+.obd + .obd { margin-left: 10px; padding-left: 5px; border-left: 1px dashed rgba(255,180,36,.45); }
+.obtns { display: flex; flex: 0 1 auto; min-width: 0; }
+.ob2 { flex: 0 1 60px; min-width: 40px; margin-left: 5px; border-radius: 7px; background: #212a32; padding: 5px 0 4px;
+  text-align: center; display: flex; flex-direction: column; justify-content: center; min-height: 44px; overflow: hidden; }
+.ob2.ml { flex-basis: 58px; }
 .obt { font-size: 12px; font-weight: 700; color: #e9eef2; line-height: 1.25; white-space: nowrap; }
 .obp { font-size: 14px; font-weight: 800; color: #e9eef2; line-height: 1.25; white-space: nowrap; }
 .obp.pos { color: #46c87f; }
-.ohd { display: flex; justify-content: flex-end; margin-top: 4px; }
+/* the header row above the boards: same spacers and same board markup as a team row, so the
+   Spread / Total / Money labels (and the Full game / halftime captions) line up with the buttons */
+.ohd { display: flex; align-items: flex-end; gap: 10px; margin-top: 4px; }
+.ohd .tsp { width: 34px; flex: none; }
+.ohd .nsp { flex: 0 1 132px; min-width: 0; }
 .ohd .ob2 { background: none; min-height: 0; padding: 0 0 2px; font-size: 10px; font-weight: 700;
   letter-spacing: .06em; text-transform: uppercase; color: #8b99a6; }
+.obc { width: 0; min-width: 100%; margin-left: 5px; padding-bottom: 2px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #46c87f; }
+.obc.seg { color: #ffb424; }
 .bchips { display: flex; flex-wrap: wrap; align-items: center; margin: 2px 0 4px; }
 .bchip { min-height: 32px; padding: 0 11px; margin: 0 6px 6px 0; border-radius: 999px; border: 1px solid #26303a;
   color: #8b99a6; font-size: 12px; font-weight: 800; }
@@ -451,9 +462,13 @@ body.tracking #vrow { display: none; }
 .ocap { display: flex; align-items: center; justify-content: space-between; margin-top: 6px; padding-top: 2px;
   border-top: 1px solid #1d252d; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
 .omore { color: #46c87f; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; padding: 8px 0 8px 12px; }
-@media (max-width: 400px) {
-  .ob2 { width: 54px; margin-left: 4px; } .ob2.ml { width: 52px; }
+@media (max-width: 430px) {
+  .ob2 { flex-basis: 54px; margin-left: 3px; } .ob2.ml { flex-basis: 52px; }
   .obt { font-size: 11px; } .obp { font-size: 13px; }
+  .ohd .ob2 { font-size: 9px; letter-spacing: .03em; }
+  .obc { margin-left: 3px; letter-spacing: .06em; }
+  .obd + .obd { margin-left: 6px; padding-left: 3px; }
+  .ohd { gap: 6px; }
 }
 /* once the game is under way the lines shrink to a quiet footnote */
 .odds.mini .om { font-size: 11px; line-height: 1.55; }
@@ -474,6 +489,7 @@ body.tracking #vrow { display: none; }
 .nogap #pull > * + * { margin-left: 8px; }
 .nogap .card .top > * + * { margin-left: 10px; }
 .nogap .trow > * + *,
+.nogap .ohd > * + *,
 .nogap .f5head > * + *,
 .nogap .mid > * + * { margin-left: 10px; }
 /* wrapping rows: trailing margins so wrapped lines stay flush left */
@@ -504,7 +520,7 @@ body.tracking #vrow { display: none; }
   .gsv { font-size: 12px; }
   .gst { font-size: 11px; }
   .gsh { font-size: 8px; letter-spacing: .06em; }
-  .nogap .trow > * + *, .nogap .f5head > * + *, .nogap .mid > * + * { margin-left: 6px; }
+  .nogap .trow > * + *, .nogap .ohd > * + *, .nogap .f5head > * + *, .nogap .mid > * + * { margin-left: 6px; }
 }
 @media (max-width: 370px) {
   .score { font-size: 24px; min-width: 42px; }
@@ -613,6 +629,9 @@ var PFX = 'sbx2:';
                       or Pinnacle; in a full-slate sample every game without a line
                       involved a non-D-I team and 116 of 119 D-I vs D-I games had one
                       (the 3 others were live / final, when ESPN drops its line).
+   fullOnly: true  -> full-game scores and full-game odds only (NHL): no 1st-period
+                      score, and no period / half odds are ever downloaded or shown.
+                      (A league without `seg` never requests a second odds line.)
    noMl            -> no money line in the odds (NBA, WNBA, NFL, CFB, CBB).
    pro             -> team names are city + nickname (odds matching may fall
                       back to the nickname).
@@ -641,7 +660,7 @@ var LEAGUES = [
     query: '&groups=50&limit=400', d1: true, pin: 493, sk: 'basketball_ncaab', seg: 'h1', noMl: true },
   { key: 'nhl',  label: 'NHL',  desc: 'Hockey',
     paths: ['hockey/nhl'],      kind: 'periods',
-    noSplit: true, pin: 1456, sk: 'icehockey_nhl', pro: true }
+    noSplit: true, fullOnly: true, pin: 1456, sk: 'icehockey_nhl', pro: true }
 ];
 var KEEP_DAYS = 21;
 var LIVE_MS = 10000;   /* whole-slate live sync */
@@ -2059,6 +2078,7 @@ function totalResult(p, a, h) {
 /* the halftime-style score for any sport, worked out from the line score so it also covers games cached before it was shown:
    baseball first 5 innings, football / basketball the first half, hockey the first period */
 function segScoreOf(g, lg) {
+  if (lg.fullOnly) return null;
   if (lg.kind === 'innings') return g.f5 || null;
   if (g.ht) return g.ht;
   if (lg.kind === 'quarters') return calcCut(g, 2, /half/i);
@@ -2114,11 +2134,13 @@ var BOOK_TAG = { pinnacle: 'PIN', draftkings: 'DK', fanduel: 'FD', betmgm: 'MGM'
 function bookTag(k, n) { return BOOK_TAG[k] || String(n || k).slice(0, 4).toUpperCase(); }
 /* up to n books that carry the part: fresh lines first, then the big consumer brands in a fixed order, Pinnacle last */
 function topBooks(list, n, part) {
-  var c = [], i, mi, it, ft;
+  var c = [], i, j, mi, it, ft, parts = part instanceof Array ? part : [part || 'full'], has;
   for (i = 0; i < list.length; i++) {
-    it = list[i];
-    if (!it.b[part || 'full']) continue;
-    ft = partTime(it, part || 'full');
+    it = list[i]; has = false; ft = 0;
+    for (j = 0; j < parts.length; j++) {
+      if (it.b[parts[j]]) { has = true; ft = Math.max(ft, partTime(it, parts[j])); }
+    }
+    if (!has) continue;
     mi = OD_MAJOR.indexOf(it.k);
     c.push({ it: it, sc: (ft && Date.now() - ft <= ODDS_FRESH_MS ? 0 : 100) + (mi >= 0 ? mi : (it.k === 'pinnacle' ? 60 : 30 + bookRank(it.k))) });
   }
@@ -2136,6 +2158,7 @@ function betBtn(cls, top, price) {
 }
 function oddsCells(p, side, showMl) {
   var a = side === 'a', sp, tt, ml = '';
+  p = p || {};
   sp = p.sp ? betBtn('sp', fmtPts(a ? -p.sp.h : p.sp.h), a ? p.sp.ap : p.sp.hp) : betBtn('sp', '', null);
   tt = p.tot ? betBtn('tt', (a ? 'O ' : 'U ') + p.tot.p, a ? p.tot.o : p.tot.u) : betBtn('tt', '', null);
   if (showMl) ml = betBtn('ml', '', p.ml ? (a ? p.ml.a : p.ml.h) : null);
@@ -2148,8 +2171,15 @@ function chipsHTML(gid, items, sel, attr) {
   }
   return out;
 }
-/* { head, away, home, below } -- head/away/home go inside the card's team rows (sportsbook layout:
-   away over home, Spread / Total / Money buttons to the right); below goes under the teams */
+/* { top, head, away, home, below } -- head sits above the team rows; away / home are the boards that go
+   inside each team row (sportsbook layout: away over home, Spread / Total / Money buttons) in the
+   middle of the card, where the score appears once the game starts; below goes under the teams.
+   One board per part the toggles ask for (full game, halftime / first 5 / 1st half), side by side,
+   full game first.  The book picked for the game (chips, or the Books menu) supplies BOTH boards. */
+function partsName(W, lg) {
+  if (W.length > 1) return 'Full-game and ' + segName(lg).toLowerCase();
+  return W[0] === 'seg' ? segName(lg) : 'Full-game';
+}
 function oddsParts(g, lg, e, isDay) {
   var res = { top: '', head: '', away: '', home: '', below: '' };
   if (!state.odds || (!state.oFull && !state.oSeg) || g.flag === 'Postponed' || g.flag === 'Canceled') return res;
@@ -2159,41 +2189,79 @@ function oddsParts(g, lg, e, isDay) {
     return res;
   }
   if (g.state !== 'pre') { res.below = oddsMini(g, lg, list); return res; }
-  var gid = g.id, more = !!state.more[gid], i, chips = [], sel = null, want = state.bk[gid], seen = {}, P = state.oFull ? 'full' : 'seg';
-  if (P === 'seg' && !lg.seg) { res.below = '<div class="odds none">No halftime odds for ' + esc(lg.label) + '</div>'; return res; }
-  var pk = pickFor(list, [P]), pool = pk.pool, chosen = !!pk.items;
-  if (!pool.length) { res.below = '<div class="odds none">' + (P === 'seg' ? segName(lg) : 'Full-game') + ' odds not posted yet</div>'; return res; }
+  var gid = g.id, more = !!state.more[gid], i, chips = [], sel = null, want = state.bk[gid], seen = {}, foundWant = false;
+  var W = oddsWant(lg);     /* ['full'], ['seg'] or ['full', 'seg'] -- NHL never has 'seg' */
+  if (!W.length) { res.below = '<div class="odds none">No halftime odds for ' + esc(lg.label) + '</div>'; return res; }
+  var pk = pickFor(list, W), pool = pk.pool, chosen = !!pk.items;
+  if (!pool.length) { res.below = '<div class="odds none">' + partsName(W, lg) + ' odds not posted yet</div>'; return res; }
   if (chosen) {
     for (i = 0; i < pk.items.length; i++) { chips.push(pk.items[i]); seen[pk.items[i].k] = 1; }
   } else if (state.allBooks || more) {
-    var top = topBooks(list, 3, P);
+    var top = topBooks(list, 3, W);
     for (i = 0; i < top.length; i++) { chips.push(top[i]); seen[top[i].k] = 1; }
   }
   if (more) for (i = 0; i < pool.length; i++) { if (!seen[pool[i].k]) chips.push(pool[i]); }
   if (chosen && !chips.length) {
-    res.below = '<div class="ocap"><span>Your selected book' + (AV.eff.length > 1 ? 's have' : ' has') + ' no ' + (P === 'seg' ? segName(lg).toLowerCase() : 'full-game') + ' line on this game</span>' +
+    res.below = '<div class="ocap"><span>Your selected book' + (AV.eff.length > 1 ? 's have' : ' has') + ' no ' + partsName(W, lg).toLowerCase() + ' line on this game</span>' +
       '<button class="omore" data-more="' + esc(gid) + '" aria-expanded="false">Other books \u25be</button></div>';
     return res;
   }
   var src = chips.length ? chips : pool;
-  for (i = 0; i < src.length; i++) { if (src[i].k === want) sel = src[i]; }
-  if (!sel) sel = chips.length ? chips[0] : (defaultPart(list, P) || pool[0]);
-  var part = P, p = sel.b[part], showMl = !!p.ml, t = partTime(sel, part);
+  for (i = 0; i < src.length; i++) { if (src[i].k === want) { sel = src[i]; foundWant = true; } }
+  if (!sel) sel = chips.length ? chips[0] : (defaultPart(list, W[0]) || defaultPart(list, W[W.length - 1]) || pool[0]);
+  /* a book was picked (chips / Books menu / tapped chip): its own lines for every board, a dash where it has none.
+     Nobody picked: Pinnacle's line for each part, another book only where Pinnacle has none. */
+  var strict = chips.length > 0 || foundWant;
+  var boards = [], j, it, pp;
+  for (j = 0; j < W.length; j++) {
+    it = strict ? (sel.b[W[j]] ? sel : null) : defaultPart(list, W[j]);
+    pp = it ? it.b[W[j]] : null;
+    boards.push({ part: W[j], it: it, p: pp, ml: pp ? !!pp.ml : !lg.noMl });
+  }
   var chipRow = '';
   if (chips.length > 1 || (chips.length && !chosen)) {
     chipRow = chipsHTML(gid, chips.map(function (x) { return { k: x.k, n: x.b.n }; }), sel.k, 'data-bk');
   }
   if (chipRow) res.top = '<div class="bchips">' + chipRow + '</div>';
-  res.head = '<div class="ohd"><div class="obtns"><span class="ob2 sp">Spread</span><span class="ob2 tt">Total</span>' + (showMl ? '<span class="ob2 ml">Money</span>' : '') + '</div></div>';
-  res.away = oddsCells(p, 'a', showMl);
-  res.home = oddsCells(p, 'h', showMl);
-  res.below = '<div class="ocap"><span>' + (part === 'seg' ? segName(lg) + ' · ' : '') + esc(sel.b.n) + (t ? ' · ' + ageTag(t, g, false) : '') + '</span>' +
-    '<button class="omore" data-more="' + esc(gid) + '" aria-expanded="' + more + '">' + (more ? 'Fewer books ▴' : 'More books ▾') + '</button></div>';
-  if (P === 'full' && state.oSeg && lg.seg) {   /* both on: the board is the full game, the halftime line sits under it */
-    var sp2 = defaultPart(list, 'seg');
-    if (sp2) res.below += '<div class="odds mini">' + miniLine(g, lg, segShort(lg), sp2.b.n, sp2.b.seg, null, null, false) + '</div>';
+  var dual = boards.length > 1, hd = '', aw = '', hm = '';
+  for (j = 0; j < boards.length; j++) {
+    var bd = boards[j], lab = '<div class="obtns"><span class="ob2 sp">Spread</span><span class="ob2 tt">Total</span>' + (bd.ml ? '<span class="ob2 ml">Money</span>' : '') + '</div>';
+    hd += '<div class="obd">' + (dual ? '<div class="obc' + (bd.part === 'seg' ? ' seg' : '') + '">' + (bd.part === 'seg' ? esc(segName(lg)) : 'Full game') + '</div>' : '') + lab + '</div>';
+    aw += '<div class="obd">' + oddsCells(bd.p, 'a', bd.ml) + '</div>';
+    hm += '<div class="obd">' + oddsCells(bd.p, 'h', bd.ml) + '</div>';
   }
+  res.head = '<div class="ohd"><span class="tsp"></span><span class="nsp"></span><div class="obx">' + hd + '</div></div>';
+  res.away = '<div class="obx">' + aw + '</div>';
+  res.home = '<div class="obx">' + hm + '</div>';
+  /* caption: which book(s) the boards come from, and how fresh the lines are */
+  var cap = [], names = {}, nn = 0, t;
+  for (j = 0; j < boards.length; j++) {
+    if (boards[j].it && !names[boards[j].it.b.n]) { names[boards[j].it.b.n] = 1; nn++; }
+  }
+  if (nn <= 1) {   /* one book behind every board: name it once, with the older of the lines' ages */
+    for (j = 0; j < boards.length && !boards[j].it; j++) {}
+    t = oldestTime(boards);
+    if (j < boards.length) cap.push((W.length === 1 && W[0] === 'seg' ? esc(segName(lg)) + ' \u00b7 ' : '') + esc(boards[j].it.b.n) + (t ? ' \u00b7 ' + ageTag(t, g, false) : ''));
+  } else {         /* Pinnacle for one part, another book for the other */
+    for (j = 0; j < boards.length; j++) {
+      it = boards[j].it;
+      if (!it) continue;
+      t = partTime(it, boards[j].part);
+      cap.push((boards[j].part === 'seg' ? esc(segShort(lg)) : 'Full') + ' ' + esc(it.b.n) + (t ? ' \u00b7 ' + ageTag(t, g, false) : ''));
+    }
+  }
+  res.below = '<div class="ocap"><span>' + (cap.join(' / ') || esc(sel.b.n)) + '</span>' +
+    '<button class="omore" data-more="' + esc(gid) + '" aria-expanded="' + more + '">' + (more ? 'Fewer books \u25b4' : 'More books \u25be') + '</button></div>';
   return res;
+}
+function oldestTime(boards) {
+  var t = 0, j, x;
+  for (j = 0; j < boards.length; j++) {
+    if (!boards[j].it) continue;
+    x = partTime(boards[j].it, boards[j].part);
+    if (x && (!t || x < t)) t = x;
+  }
+  return t;
 }
 
 /* ----- the Odds sources sheet: which sources are on, and their API keys ----- */
