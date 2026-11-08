@@ -354,6 +354,22 @@ footer { text-align: center; color: #5d6a76; font-size: 11px; padding: 0 20px 30
 #optBtn { width: 48px; min-height: 44px; padding: 0; font-size: 28px; letter-spacing: 0; line-height: 1;
   border-radius: 10px; margin-left: 2px; }
 #optBtn.on { border-color: #ffb424; color: #ffb424; background: rgba(255,180,36,.08); }
+/* narrow phones: the bigger gear must not push the header past the screen edge */
+@media (max-width: 400px) {
+  .bar { gap: 5px; }
+  .nogap .bar > * + * { margin-left: 5px; }
+  .wordmark { font-size: 13px; letter-spacing: .1em; }
+  .wordmark small { letter-spacing: .1em; }
+  #oddsBtn, #liveBtn { padding: 0 8px; }
+  #syncBtn { padding: 0 10px; }
+  #optBtn { width: 44px; margin-left: 0; }
+}
+@media (max-width: 340px) {
+  .wordmark { font-size: 11px; letter-spacing: .04em; }
+  .wordmark small { letter-spacing: .04em; }
+  #oddsBtn, #liveBtn, #syncBtn { font-size: 10px; letter-spacing: .02em; padding: 0 6px; }
+  #optBtn { width: 40px; font-size: 26px; }
+}
 /* settings panel: closed until the gear is tapped, so the schedule gets the screen */
 #opts { display: none; padding-bottom: 2px; }
 body.optsopen #opts { display: block; }
@@ -491,6 +507,40 @@ body.tracking #vrow { display: none; }
 .odds.mini .om { font-size: 11px; line-height: 1.55; }
 .odds.mini .oh { font-size: 9px; }
 
+/* ---- Moves tab: how far the saved lines have moved, biggest first ---- */
+#tabs button.mvtab.on { color: #46c87f; border-color: #46c87f; background: rgba(70,200,127,.08); }
+.mvtop { margin: 12px 2px 0; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
+.mvtop b { color: #46c87f; font-size: 14px; }
+.mvnote { margin: 4px 2px 2px; font-size: 12px; line-height: 1.4; color: #6f7c88; }
+.mvcard { background: #161c22; border: 1px solid #26303a; border-radius: 12px; padding: 10px 12px 8px; margin-top: 10px; }
+.mvcard.started { opacity: .7; }
+.mvh { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 8px; }
+.mvlg { flex: none; border: 1px solid #26303a; border-radius: 6px; padding: 1px 7px; font-size: 10px; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase; color: #8b99a6; }
+.mvg { font-size: 16px; font-weight: 800; letter-spacing: .01em; }
+.mvst { font-size: 10px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: #8b99a6; }
+.mvst.live { color: #ff7a72; }
+.mvtm { font-size: 12px; color: #c5ced6; }
+.mvage { margin-left: auto; font-size: 11px; color: #8b99a6; white-space: nowrap; }
+.mvrow { display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #1d252d; }
+.mvk { flex: none; width: 58px; font-size: 10px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: #ffb424; line-height: 1.25; }
+.mvb { flex: 1; min-width: 0; font-size: 15px; font-weight: 700; color: #e9eef2; }
+.mvb i, .mvsub i { font-style: normal; color: #8b99a6; margin: 0 3px; }
+.mvl2 { display: block; }
+.mvd { flex: none; min-width: 66px; text-align: center; border: 1px solid #4a5763; border-radius: 999px; padding: 3px 9px;
+  font-size: 13px; font-weight: 800; color: #8b99a6; white-space: nowrap; }
+.mvd.mid { border-color: rgba(255,180,36,.6); color: #ffd782; background: rgba(255,180,36,.08); }
+.mvd.big { border-color: rgba(255,90,82,.7); color: #ff7a72; background: rgba(255,90,82,.1); }
+.mvsub { margin: 2px 0 0 66px; font-size: 11px; line-height: 1.45; color: #8b99a6; }
+.mvtag { display: inline-block; margin-right: 8px; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: #46c87f; }
+@media (max-width: 430px) {
+  .mvcard { padding: 9px 10px 7px; }
+  .mvk { width: 50px; font-size: 9px; letter-spacing: .05em; }
+  .mvb { font-size: 14px; }
+  .mvd { min-width: 58px; font-size: 12px; padding: 3px 7px; }
+  .mvsub { margin-left: 58px; }
+}
+
 /* ---- old-WebView fallback: flexbox `gap` only exists in Chrome 84+.
        Android 10 tablets often ship an older System WebView that
        silently ignores it, so everything butts together (tile against
@@ -514,6 +564,7 @@ body.tracking #vrow { display: none; }
 .nogap .atbat > * { margin-right: 14px; }
 .nogap .fbsit > * { margin-right: 18px; }
 .nogap .oh > * + * { margin-left: 8px; }
+.nogap .mvh > *, .nogap .mvrow > * + *, .nogap #orfRow > * + * { margin-left: 8px; }
 .nogap .om > * { margin-right: 10px; }
 /* ---- phones (e.g. Galaxy A15, ~411px wide): the card's fixed-width columns
        (tile, score, halftime/F5, right-hand summary) plus 14px page and card
@@ -606,7 +657,7 @@ body.tracking #vrow { display: none; }
 </div>
 <div id="banner"></div>
 <main id="games"></main>
-<footer>Scores via ESPN's public feed. League tabs appear by themselves for the leagues that have games on the day you're viewing. The Scores and Odds switches under the header choose whether full-game and / or halftime (first 5 innings, first half) results show; with both odds on, the full-game and halftime boards sit side by side in the middle of the card until the game starts, and a book you pick shows both. NHL is full game only (scores and odds). Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button); a pull to refresh re-downloads them all, and they are saved for offline reading. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. F5 = through 5 innings · HT = halftime.</footer>
+<footer>Scores via ESPN's public feed. League tabs appear by themselves for the leagues that have games on the day you're viewing. The Scores and Odds switches under the header choose whether full-game and / or halftime (first 5 innings, first half) results show; with both odds on, the full-game and halftime boards sit side by side in the middle of the card until the game starts, and a book you pick shows both. NHL is full game only (scores and odds). Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button). Nothing is downloaded when the app opens or when you change days. Sync and pull-down always refresh schedules and scores; with Odds refresh on (settings ⚙) they also re-download the odds for today and the day you’re viewing, and with it off the saved odds stay as they are and no odds service is called. The Moves tab (Odds on) lists how far each saved line moved at the last refresh that changed it, biggest move first. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. F5 = through 5 innings · HT = halftime.</footer>
 
 <div id="osheet" role="dialog" aria-modal="true" aria-labelledby="osheetTitle">
   <div class="sheetcard">
@@ -1314,10 +1365,12 @@ function loadPrefs() {
      oddsapi   The Odds API (free key: the major US books)
    The two keyed sources take any number of keys: one is used at a time, and when
    its usage runs out (or it is rate limited, or rejected) the next key is used.
-   - only the current day is ever downloaded, and only for leagues that still
-     have a game ahead; free sources re-read every 5 minutes, keyed ones every
-     15 (their allowance is a budget), and a manual sync / pull to refresh
-     re-reads everything at once.
+   - odds are downloaded ONLY by a manual Sync / pull-down (runSync's withOdds), and only
+     while Odds and Odds refresh are both on: today, plus the viewed day when it differs,
+     and only for leagues that still have a game ahead. Opening the app, changing days, timers,
+     Live sync and Track live never touch an odds API; Odds refresh off keeps the saved lines
+     as they are and calls nothing. (ODDS_REFRESH_MS / KEYED_REFRESH_MS only matter to isDue()
+     when a sync is not forced.)
    - lines are kept per league, day, game and BOOK in the same localStorage
      cache as the schedules, so they read offline and only change on the next
      successful download. Once a game starts its lines are frozen: they are the
@@ -1777,17 +1830,38 @@ function partSig(p) {
   if (!p) return '';
   return (p.sp ? p.sp.h + '/' + p.sp.hp + '/' + p.sp.ap : '-') + '|' + (p.tot ? p.tot.p + '/' + p.tot.o + '/' + p.tot.u : '-') + '|' + (p.ml ? p.ml.h + '/' + p.ml.a : '-');
 }
-/* store a book's new full-game / halftime line. When it differs from the saved one, the saved one is kept
-   as book.pv[which] = { p: the previous line, at: when the change was saved } -- that pair is what the Moves
-   tab compares. A refresh that finds the same numbers leaves it alone, so a move stays listed until
-   the line moves again. */
-function putPart(cur, which, np, at) {
-  var old = cur[which];
-  if (old && np && partSig(old) !== partSig(np)) {
-    var pv = cur.pv || (cur.pv = {});
-    pv[which] = { p: old, at: at };
+/* Movement is measured per odds ROUND (one Sync / pull-down), not per write: oddsSync snapshots the saved
+   lines before it touches anything and, when the round is over, markMoves compares them with what is saved
+   now. Any line that differs keeps its old version as book.pv[part] = { p: the line before this round,
+   at: when it moved } -- what the Moves tab shows. A round that finds the same numbers leaves pv alone,
+   so a move stays listed until that line moves again. (Comparing whole rounds also keeps two sources that
+   write the same book -- ESPN's embedded DraftKings line, then PropLine's -- from looking like a move.) */
+function markMoves(snap, now) {
+  var key, bits, before, after, gid, e, be, bk, parts = ['full', 'seg'], pi, b, bb, dirty;
+  for (key in snap) {
+    before = snap[key];
+    if (!before || !before.games) continue;
+    bits = key.split(':');
+    after = loadOdds(bits[0], bits[1]);
+    if (!after || !after.games) continue;
+    dirty = false;
+    for (gid in after.games) {
+      if (!before.games[gid]) continue;
+      e = normEntry(after.games[gid]); be = normEntry(before.games[gid]);
+      for (bk in e.b) {
+        b = e.b[bk]; bb = be.b[bk];
+        if (!bb) continue;
+        for (pi = 0; pi < parts.length; pi++) {
+          if (b[parts[pi]] && bb[parts[pi]] && partSig(b[parts[pi]]) !== partSig(bb[parts[pi]])) {
+            (b.pv || (b.pv = {}))[parts[pi]] = { p: bb[parts[pi]], at: now };
+            after.games[gid] = e;
+            dirty = true;
+          }
+        }
+      }
+    }
+    if (dirty) store.set(okeyFor(bits[0], bits[1]), after);
   }
-  cur[which] = np;
 }
 /* Fold a source's books (perGame: gameId -> {bookKey: {n, full, seg}}) and ESPN's embedded
    line into a day's stored odds. A source only ever replaces a line while the game is still
@@ -1815,8 +1889,8 @@ function applyBooks(lg, ds, games, perGame, srcId, stamp, sbT) {
         if (!data[k].full && !data[k].seg) continue;
         cur = e.b[k] || (e.b[k] = {});
         cur.n = data[k].n; cur.s = srcId; delete cur.late;
-        if (data[k].full) { putPart(cur, 'full', data[k].full, stamp); cur.ft = stamp; }
-        if (data[k].seg) { putPart(cur, 'seg', data[k].seg, stamp); cur.st = stamp; }
+        if (data[k].full) { cur.full = data[k].full; cur.ft = stamp; }
+        if (data[k].seg) { cur.seg = data[k].seg; cur.st = stamp; }
       }
     }
     eo = g.eo;
@@ -1825,9 +1899,7 @@ function applyBooks(lg, ds, games, perGame, srcId, stamp, sbT) {
       if (g.state === 'pre') {
         if (!cur || !cur.full || (cur.ft || 0) <= (sbT || 0)) {
           cur = e.b[eo.k] || (e.b[eo.k] = {});
-          cur.n = eo.b; cur.s = 'espn';
-          putPart(cur, 'full', { sp: eo.full.sp, tot: eo.full.tot, ml: lg.noMl ? null : eo.full.ml }, sbT || stamp || Date.now());
-          cur.ft = sbT || stamp || Date.now();
+          cur.n = eo.b; cur.s = 'espn'; cur.full = { sp: eo.full.sp, tot: eo.full.tot, ml: lg.noMl ? null : eo.full.ml }; cur.ft = sbT || stamp || Date.now();
         }
       } else if (!cur) {
         e.b[eo.k] = { n: eo.b, s: 'espn', full: { sp: eo.full.sp, tot: eo.full.tot, ml: lg.noMl ? null : eo.full.ml }, ft: sbT || stamp || Date.now(), late: g.state === 'in' ? 1 : 0 };
@@ -1885,7 +1957,10 @@ function oddsSync(force) {
   if (!state.odds || !state.oRef) return;       /* Odds off, or Odds refresh off: no odds requests, ever (saved lines stay as they are) */
   if (OD.busy) { OD.again = OD.again || !!force; OD.pending = true; return; }
   var now = new Date(), yds = ymd(addDays(now, -1)), act = activeLeagues(), days = oddsDays();
-  var work = [], notes = {}, changed = false, i, j, d, lg, sb, od, pre, ids, k, ds;
+  var work = [], notes = {}, changed = false, i, j, d, lg, sb, od, pre, ids, k, ds, snap = {};
+  for (i = 0; i < act.length; i++) {     /* the saved lines as they are right now: the Moves tab compares them with the round's result */
+    for (d = 0; d < days.length; d++) { snap[act[i].key + ':' + days[d]] = loadOdds(act[i].key, days[d]); }
+  }
   function isDue(id, ms) { var t = od && od.st && od.st[id]; return force || !t || Date.now() - t >= ms; }
   for (i = 0; i < act.length; i++) {
     lg = act[i];
@@ -1909,8 +1984,11 @@ function oddsSync(force) {
       }
     }
   }
+  if (!work.length && !Object.keys(notes).length) {
+    if (changed) { markMoves(snap, Date.now()); render(); }
+    return;
+  }
   if (changed) render();
-  if (!work.length && !Object.keys(notes).length) return;
   OD.busy = true; OD.err = ''; OD.force = !!force; OD.pending = false; OD.again = false;
   var fails = {}, memo = {};
   for (k in notes) { fails[sourceLabel(k)] = notes[k]; }
@@ -1924,6 +2002,7 @@ function oddsSync(force) {
   });
   runJobs(jobs, 2).then(function () {
     OD.busy = false;
+    markMoves(snap, Date.now());
     var parts = [], n;
     for (n in fails) { parts.push(n + ': ' + fails[n]); }
     if (parts.length) OD.err = 'Odds not fully refreshed \u2014 showing the saved lines. ' + parts.join(' \u00b7 ');
@@ -1937,7 +2016,7 @@ function setOdds(on) {
   OD.err = '';
   savePrefs();
   render();
-  /* no download here: the new lines arrive with the next pull-to-refresh / Sync all / live tick */
+  /* no download here: the lines arrive with the next pull-to-refresh / Sync (Odds refresh on) */
 }
 function setAllBooks(on) {
   state.allBooks = !!on;
@@ -2043,6 +2122,11 @@ function refreshAges() {
     if (els[i].textContent !== txt) els[i].textContent = txt;
     var cls = 'oage' + (stale ? ' stale' : '');
     if (els[i].className !== cls) els[i].className = cls;
+  }
+  els = document.querySelectorAll('.mvage[data-t]');
+  for (i = 0; i < els.length; i++) {
+    t = 'moved ' + ago(Number(els[i].getAttribute('data-t')));
+    if (els[i].textContent !== t) els[i].textContent = t;
   }
 }
 
@@ -2307,6 +2391,154 @@ function oldestTime(boards) {
   return t;
 }
 
+/* ----- odds movement: the Moves tab -----
+   Whenever a refresh brings in a line that differs from the saved one, applyBooks keeps the saved one
+   (book.pv.full / book.pv.seg = { p: the previous line, at: when the change was saved }). This tab compares
+   that previous line with the current one and lists the biggest movers first: spreads and totals in
+   points, money lines in cents. It reads saved data only -- opening it never uses the network. A move
+   stays listed (with its age) until that line moves again.
+   Ranking score: points for a spread / total line move; money line 10 cents = 1 point; a price-only
+   change (the line itself unchanged) 20 cents = 1 point, so price wiggles sit under real line moves. */
+function cents(a) { return a > 0 ? a - 100 : a + 100; }           /* American price on a straight scale: -100 and +100 are the same price */
+function dCents(x, y) { return (x == null || y == null) ? 0 : Math.abs(cents(y) - cents(x)); }
+function r2(n) { return Math.round(n * 100) / 100; }
+/* what moved between two versions of one part { sp, tot, ml } */
+function partMoves(from, to) {
+  var out = [], pts, pc;
+  if (from.sp && to.sp) {
+    pts = r2(Math.abs(to.sp.h - from.sp.h));
+    pc = Math.max(dCents(from.sp.hp, to.sp.hp), dCents(from.sp.ap, to.sp.ap));
+    if (pts || pc) out.push({ k: 'sp', from: from.sp, to: to.sp, pts: pts, pc: pc, score: pts || pc / 20 });
+  }
+  if (from.tot && to.tot) {
+    pts = r2(Math.abs(to.tot.p - from.tot.p));
+    pc = Math.max(dCents(from.tot.o, to.tot.o), dCents(from.tot.u, to.tot.u));
+    if (pts || pc) out.push({ k: 'tot', from: from.tot, to: to.tot, pts: pts, pc: pc, score: pts || pc / 20 });
+  }
+  if (from.ml && to.ml) {
+    pc = Math.max(dCents(from.ml.h, to.ml.h), dCents(from.ml.a, to.ml.a));
+    if (pc) out.push({ k: 'ml', from: from.ml, to: to.ml, pts: 0, pc: pc, score: pc / 10 });
+  }
+  return out;
+}
+/* the books whose movement is shown for one part: the ones picked in the Books menu, else the book
+   the cards themselves show (Pinnacle first) */
+function movesBooks(list, part) {
+  var out = [], i, d;
+  if (AV.eff.length) {
+    for (i = 0; i < list.length; i++) { if (AV.eff.indexOf(list[i].k) >= 0 && list[i].b[part]) out.push(list[i]); }
+    return out;
+  }
+  d = defaultPart(list, part);
+  return d ? [d] : [];
+}
+/* every game on a day with a moved line: [{ lg, g, rows, at, score }], biggest mover first */
+function movesForDay(ds) {
+  var act = activeLeagues(), cards = [], i, j, k, w, n, lg, od, sb, byId, gid, g, list, W, picks, it, pv, ms, rows, at, st;
+  for (i = 0; i < act.length; i++) {
+    lg = act[i];
+    W = oddsWant(lg);
+    if (!W.length) continue;
+    od = loadOdds(lg.key, ds); sb = load(lg.key, ds);
+    if (!od || !od.games || !sb || !sb.games) continue;
+    byId = {};
+    for (j = 0; j < sb.games.length; j++) { byId[sb.games[j].id] = sb.games[j]; }
+    for (gid in od.games) {
+      g = byId[gid];
+      if (!g || g.flag === 'Postponed' || g.flag === 'Canceled') continue;
+      list = visibleBooks(normEntry(od.games[gid]));
+      rows = []; at = 0; st = 0;
+      for (w = 0; w < W.length; w++) {
+        picks = movesBooks(list, W[w]);
+        for (k = 0; k < picks.length; k++) {
+          it = picks[k];
+          pv = it.b.pv && it.b.pv[W[w]];
+          if (!pv || !pv.p || !it.b[W[w]]) continue;
+          ms = partMoves(pv.p, it.b[W[w]]);
+          for (n = 0; n < ms.length; n++) {
+            ms[n].part = W[w]; ms[n].book = it; ms[n].at = pv.at;
+            rows.push(ms[n]);
+            if (ms[n].score > st) st = ms[n].score;
+            if (pv.at > at) at = pv.at;
+          }
+        }
+      }
+      if (rows.length) {
+        rows.sort(function (x, y) { return y.score - x.score; });
+        cards.push({ lg: lg, g: g, rows: rows, at: at, score: st });
+      }
+    }
+  }
+  cards.sort(function (x, y) { return y.score - x.score || y.rows.length - x.rows.length || (String(x.g.start) < String(y.g.start) ? -1 : 1); });
+  return cards;
+}
+function numTxt(n) { return String(r2(n)); }
+/* one price change: "NYK -110 → -118" (only the sides whose price moved) */
+function juiceTxt(parts) {
+  var out = [], i;
+  for (i = 0; i < parts.length; i++) {
+    if (parts[i][1] !== parts[i][2]) out.push(parts[i][0] + ' ' + fmtPrice(parts[i][1]) + ' <i>→</i> ' + fmtPrice(parts[i][2]));
+  }
+  return out.join(' · ');
+}
+function moveRowHTML(m, c, tag) {
+  var g = c.g, pre = m.part === 'seg' ? segShort(c.lg) + ' ' : '', label, body, chip, sub = '', big;
+  if (m.k === 'sp') {
+    label = pre + 'Spread';
+    body = m.pts ? spreadTxt(g, { sp: m.from }, false) + ' <i>→</i> ' + spreadTxt(g, { sp: m.to }, false) : spreadTxt(g, { sp: m.to }, false);
+    sub = juiceTxt([[esc(g.away.abbr), m.from.ap, m.to.ap], [esc(g.home.abbr), m.from.hp, m.to.hp]]);
+  } else if (m.k === 'tot') {
+    label = pre + 'Total';
+    body = m.pts ? 'O/U ' + numTxt(m.from.p) + ' <i>→</i> ' + numTxt(m.to.p) : 'O/U ' + numTxt(m.to.p);
+    sub = juiceTxt([['O', m.from.o, m.to.o], ['U', m.from.u, m.to.u]]);
+  } else {
+    label = pre + 'Money';
+    body = '<span class="mvl2">' + esc(g.away.abbr) + ' ' + fmtPrice(m.from.a) + ' <i>→</i> ' + fmtPrice(m.to.a) + '</span>' +
+      '<span class="mvl2">' + esc(g.home.abbr) + ' ' + fmtPrice(m.from.h) + ' <i>→</i> ' + fmtPrice(m.to.h) + '</span>';
+  }
+  if (m.pts) chip = (m.k === 'tot' ? (m.to.p > m.from.p ? '▲ ' : '▼ ') : '') + numTxt(m.pts) + ' pt' + (m.pts === 1 ? '' : 's');
+  else chip = Math.round(m.pc) + '¢';
+  big = m.score >= 3 ? ' big' : (m.score >= 1 ? ' mid' : '');
+  return '<div class="mvrow"><span class="mvk">' + label + '</span><span class="mvb">' + body + '</span>' +
+    '<span class="mvd' + big + ' num">' + chip + '</span></div>' +
+    (sub || tag ? '<div class="mvsub">' + (tag ? '<span class="mvtag">' + esc(tag) + '</span>' : '') + sub + '</div>' : '');
+}
+function renderMoves(ds) {
+  var cards = movesForDay(ds), html = '', i, j, c, g, n = 0, st, books, multi, tag, anyOdds = false, act = activeLeagues();
+  for (i = 0; i < act.length; i++) { if (loadOdds(act[i].key, ds)) { anyOdds = true; break; } }
+  if (!state.oFull && !state.oSeg) {
+    setGames('<div class="empty"><div class="big">No odds parts turned on</div>Switch on Full game or Halftime under Odds in the settings (⚙) to see their movement.</div>');
+    return;
+  }
+  if (!cards.length) {
+    setGames('<div class="empty"><div class="big">' + (anyOdds ? 'No lines have moved yet' : 'No odds saved for this day') + '</div>' +
+      (anyOdds
+        ? 'After a refresh finds a different line, the game shows up here — biggest move first.' + (state.oRef ? '' : ' (Odds refresh is off, so nothing is being re-downloaded.)')
+        : (state.oRef ? 'Pull down or press <b>Sync</b> to download this day’s odds.' : 'Switch <b>Odds refresh</b> on in the settings (⚙), then pull down or press <b>Sync</b>.')) +
+      '</div>');
+    return;
+  }
+  html += '<div class="mvtop"><b>' + cards.length + '</b> game' + (cards.length === 1 ? '' : 's') + ' with moved lines · biggest move first</div>' +
+    '<div class="mvnote">Each line is compared with what it was before the last refresh that changed it. Spreads and totals in points, money lines in cents.</div>';
+  for (i = 0; i < cards.length; i++) {
+    c = cards[i]; g = c.g;
+    books = {}; n = 0;
+    for (j = 0; j < c.rows.length; j++) { if (!books[c.rows[j].book.k]) { books[c.rows[j].book.k] = 1; n++; } }
+    multi = n > 1;
+    st = g.state === 'in' ? '<span class="mvst live">Live</span>' : (g.state === 'post' ? '<span class="mvst">Final</span>' : '');
+    html += '<div class="mvcard' + (g.state === 'pre' ? '' : ' started') + '">' +
+      '<div class="mvh"><span class="mvlg">' + esc(c.lg.label) + '</span><span class="mvg">' + esc(g.away.abbr) + ' @ ' + esc(g.home.abbr) + '</span>' + st +
+      '<span class="mvtm num">' + esc(g.tbd && g.state === 'pre' ? 'TBD' : timeLabel(g.start)) + '</span>' +
+      '<span class="mvage" data-t="' + c.at + '">moved ' + ago(c.at) + '</span></div>';
+    for (j = 0; j < c.rows.length; j++) {
+      tag = multi || c.rows[j].book.k !== 'pinnacle' ? c.rows[j].book.b.n : '';
+      html += moveRowHTML(c.rows[j], c, tag);
+    }
+    html += '</div>';
+  }
+  setGames(html);
+}
+
 /* ----- the Odds sources sheet: which sources are on, and their API keys ----- */
 var oDraft = {};          /* key text typed but not saved yet, so a switch tap does not lose it */
 var oSheetPushed = false;
@@ -2542,11 +2774,13 @@ function renderTabs() {
   var ds = ymd(state.date), html = '', act = leaguesWithGames(ds), tabs = $('tabs'), i, total = 0;
   for (i = 0; i < act.length; i++) {
     var lg = act[i];
-    html += '<button data-lg="' + lg.key + '" class="' + (lg.key === state.league ? 'on' : '') + '">' +
+    html += '<button data-lg="' + lg.key + '" class="' + (!state.mv && lg.key === state.league ? 'on' : '') + '">' +
       '<span class="tl">' + lg.label + '</span><span class="tc num">(' + gamesIn(lg.key, ds) + ')</span>' +
       (liveCount(lg.key, ds) > 0 ? '<span class="livecount"></span>' : '') + '</button>';
     total += gamesIn(lg.key, ds);
   }
+  /* the Moves tab: how far the saved lines have moved (Odds on only; it reads saved data, no network) */
+  if (state.odds && act.length) html += '<button data-mv="1" class="mvtab' + (state.mv ? ' on' : '') + '">Moves</button>';
   var sl = tabs.scrollLeft;
   tabs.innerHTML = html;
   tabs.scrollLeft = sl;
@@ -2596,6 +2830,13 @@ function setGames(html, keep) {
 /* the status line under the header ("Updated 3m ago · Odds 2m ago") -- cheap to call on its own */
 function updateMeta() {
   var lg = leagueOf(state.league), ds = ymd(state.date), entry = load(lg.key, ds);
+  if (state.mv && state.odds) {
+    var newest = 0, act = activeLeagues(), ai, od0, mm = $('metaLine'), txt;
+    for (ai = 0; ai < act.length; ai++) { od0 = loadOdds(act[ai].key, ds); if (od0 && od0.t > newest) newest = od0.t; }
+    txt = (state.live ? 'Live sync on \u00b7 ' : '') + 'Odds moves \u00b7 ' + (state.syncing ? 'Syncing\u2026' : (newest ? 'odds ' + ago(newest) : 'no odds saved for this day')) + (!state.oRef ? ' (refresh off)' : '');
+    if (mm.textContent !== txt) mm.textContent = txt;
+    return;
+  }
   var oddsDay = state.odds ? loadOdds(lg.key, ds) : null;
   var meta = state.live ? 'Live sync on \u00b7 ' : '';
   if (state.syncing && !state.live) meta += 'Syncing\u2026';
@@ -2638,6 +2879,7 @@ function renderTrack() {
 
 function render() {
   if (state.track) { renderTrack(); return; }
+  if (!state.odds) state.mv = false;       /* the Moves tab only exists while Odds is on */
   var ds = ymd(state.date);
   var avail = leaguesWithGames(ds), ai, inAv = false;
   for (ai = 0; ai < avail.length; ai++) { if (avail[ai].key === state.pref) inAv = true; }
@@ -2660,7 +2902,7 @@ function render() {
   $('orfBtn').textContent = state.oRef ? 'Odds refresh: on' : 'Odds refresh: off';
   $('orfBtn').setAttribute('aria-pressed', state.oRef ? 'true' : 'false');
   $('orfHint').textContent = state.oRef
-    ? 'Sync and pull-down also re-download the odds (today + the day you’re viewing).'
+    ? 'Sync and pull-down also re-download the odds (today + the day you’re viewing). Live sync never does.'
     : 'Saved odds stay on screen. No odds service is called.';
   $('remBtn').className = 'mbtn' + (state.rem ? ' on' : '');
   $('remBtn').textContent = state.rem ? 'Games left: on' : 'Games left: off';
@@ -2682,6 +2924,7 @@ function render() {
   else { banner.textContent = ''; banner.className = ''; }
 
   var main = $('games');
+  if (state.mv && avail.length) { renderMoves(ds); return; }
   if (!avail.length) {
     var cached = false, ci;
     for (ci = 0; ci < LEAGUES.length; ci++) { if (load(LEAGUES[ci].key, ds)) cached = true; }
@@ -2689,8 +2932,8 @@ function render() {
   }
   if (!entry) {
     var hint;
-    if (!navigator.onLine) hint = 'Reconnect and tap <b>Sync all</b> \u2014 after that, this day stays readable offline.';
-    else hint = 'Tap <b>Sync all</b> \u2014 it fetches the day you\u2019re on, so ' + esc(lg.label) + ' for this date will be saved for offline reading.';
+    if (!navigator.onLine) hint = 'Reconnect, then pull down or tap <b>Sync</b> \u2014 after that, this day stays readable offline.';
+    else hint = 'Pull down or tap <b>Sync</b> \u2014 it fetches the day you\u2019re on, so ' + esc(lg.label) + ' for this date will be saved for offline reading.';
     setGames('<div class="empty"><div class="big">Nothing cached for this day</div>' + hint + '</div>');
     return;
   }
@@ -2708,7 +2951,9 @@ function render() {
 /* ---------- events ---------- */
 $('tabs').addEventListener('click', function (e) {
   var b = e.target && e.target.closest ? e.target.closest('button') : null;
+  if (b && b.getAttribute('data-mv')) { state.mv = true; render(); return; }
   if (!b || !b.getAttribute('data-lg')) return;
+  state.mv = false;
   state.league = state.pref = b.getAttribute('data-lg');
   savePrefs();
   render();
@@ -2883,7 +3128,7 @@ window.addEventListener('offline', render);
 })();
 loadPrefs();
 render();
-/* no network on launch: the app opens on saved data; refresh only by pull-down, Sync all, or live sync */
+/* no network on launch: the app opens on saved data; schedules/scores refresh by pull-down, Sync or live sync, odds only by pull-down / Sync */
 })();
 </script>
 </body>

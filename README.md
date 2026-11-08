@@ -51,13 +51,40 @@ a line had a non-D-I team, and 116 of 119 D-I vs D-I games had one (the rest
 were live/final, when ESPN drops its line). A game ESPN does attach a line to
 is always kept.
 
-## Odds downloads
+## When the app uses the internet
 
-With **Odds** off, nothing odds-related is ever requested (pull to refresh
-included). With it on, today's lines are always kept fresh, and when another
-day's tab is open that day's lines are downloaded too (Pinnacle's league feed
-is shared between the two). Settings (Scores / Odds views, Sources, books,
-**Games left** counter) live behind the gear button to keep the header small.
+Nothing is downloaded when the app opens, when you change days, when you flip
+a toggle or when it comes back to the foreground — it opens on the saved copy.
+The network is used only by:
+
+- **Sync** and **pull-down** — always re-download schedules and scores
+  (yesterday, today, the next two days, the day you are viewing, and the whole
+  Thu–Mon football week for NFL / CFB), so start times, postponements and
+  cancellations are picked up. With **Odds** on *and* **Odds refresh** on they
+  also re-download the odds for today and, if a different day is open, that
+  day's lines (Pinnacle's league feed is shared between the two).
+- **Live sync** / **Track live** — scores only, never odds.
+
+**Odds refresh** (settings, behind the gear): *off* keeps the saved odds on
+screen and never calls any odds service — Pinnacle, PropLine and The Odds API
+are not contacted, and the saved lines are not touched. With **Odds** off,
+nothing odds-related is requested either. Settings (Scores / Odds views,
+Sources, books, **Games left** counter, **Odds refresh**) live behind the gear
+button to keep the header small.
+
+## Moves tab (odds movement)
+
+With **Odds** on, a **Moves** tab sits after the league tabs. It shows how far
+each saved line moved, biggest move first, for the day on screen. Whenever a
+refresh brings in a line that differs from the saved one, the saved one is kept
+(`book.pv.full` / `book.pv.seg` in the odds cache: the previous line plus when
+the change was saved); the tab compares that with the current line. Spread and
+total are in points (`NYK −5 → NYK −9 · 4 pts`, `O/U 154 → 165 · ▲ 11 pts`),
+money lines in cents, price-only changes in cents under the line moves. Ranking:
+points as-is, money line 10¢ = 1 point, price-only 20¢ = 1 point. It follows the
+**Books** picker (Pinnacle first when on auto) and the Full game / Halftime
+switches, reads saved data only, and a move stays listed (with its age) until
+that line moves again.
 
 ## Odds (optional)
 
@@ -87,12 +114,14 @@ which team covered and whether the total went over or under.
   a part Pinnacle has not posted, e.g. the first half, another book's line, named
   on that row). **All books** lists every book from every source, per part of
   the game.
-- **Fresh:** only the current day is downloaded, only for leagues that still
-  have a game ahead. Free sources re-read every 5 minutes, keyed ones every 15
-  (their allowance is a budget); a pull to refresh or **Sync all** re-downloads
-  every source at once, replacing anything stale from earlier refreshes. A
-  pre-game line older than 15 minutes is flagged "stale". First-half / first-5
-  lines appear when a book posts them (usually the day of the game).
+- **Fresh:** odds are downloaded only by **Sync** / pull-down (with **Odds** and
+  **Odds refresh** on): today's lines, plus the day on screen when that is a
+  different day, only for leagues that still have a game ahead. Every Sync
+  re-downloads every source at once, replacing anything stale from earlier
+  refreshes; there are no timers, no refresh on opening the app, and Live sync
+  never touches odds. A pre-game line older than 15 minutes is flagged "stale"
+  (not while Odds refresh is off). First-half / first-5 lines appear when a
+  book posts them (usually the day of the game).
 - **Offline:** lines are cached per league and day in `localStorage` next to the
   schedules and only change on the next successful download. A game's lines
   freeze when it starts: they are the lines the cover / over-under results are
@@ -160,7 +189,8 @@ real distribution channel, replace this keystore with a private one first.
   call ESPN's API without hitting CORS.
 - `index.html` polls `site.api.espn.com/apis/site/v2/sports/.../scoreboard`,
   caches parsed results in `localStorage`, and renders game cards. "Live
-  sync" polls every 10s; "Track live" follows a single game every 5s.
+  sync" polls scores every 10s; "Track live" follows a single game every 5s
+  (neither ever downloads odds).
 
 ## What changed since the recovered version
 
