@@ -1904,7 +1904,7 @@ function setOdds(on) {
   OD.err = '';
   savePrefs();
   render();
-  if (state.odds) oddsSync(true);
+  /* no download here: the new lines arrive with the next pull-to-refresh / Sync all / live tick */
 }
 function setAllBooks(on) {
   state.allBooks = !!on;
@@ -2323,7 +2323,6 @@ function closeOSheet() {
   $('osheet').className = '';
   if (oSheetPushed) { oSheetPushed = false; try { history.back(); } catch (e) {} }
   render();
-  if (state.odds) oddsSync(false);
 }
 
 /* ---------- rendering ---------- */
@@ -2731,7 +2730,6 @@ $('osheet').addEventListener('click', function (e) {
       state.osrc[id] = !srcOn(id);
       savePrefs();
       render();
-      if (state.odds && srcOn(id)) oddsSync(true);
     }
     renderOSheet();
     return;
@@ -2743,7 +2741,6 @@ $('osheet').addEventListener('click', function (e) {
     if (ta) setKeyText(id, ta.value);
     delete oDraft[id];
     renderOSheet();
-    if (state.odds) oddsSync(true);
   }
 });
 $('osheet').addEventListener('input', function (e) {
@@ -2753,12 +2750,12 @@ $('osheet').addEventListener('input', function (e) {
 /* keep the odds inside the 15-minute freshness window: a minute tick re-reads them when 5 minutes old
    and refreshes the "updated Xm ago" labels; coming back to the app does the same at once */
 setInterval(function () {
-  if (!state.odds || document.hidden || state.track || state.osheet) return;
+  if (!state.odds || !state.live || document.hidden || state.track || state.osheet) return;
   oddsSync(false);
   refreshAges();          /* labels only: a full render here is what made the page blink */
 }, 60000);
 document.addEventListener('visibilitychange', function () {
-  if (!document.hidden && state.odds && !state.track) oddsSync(false);
+  if (!document.hidden && state.odds && state.live && !state.track) oddsSync(false);
 });
 /* open another day: show it at once; a day with no stored schedule gets its schedule downloaded
    (one cheap ESPN call per league), and with Odds on, that day's lines come down too -- today's are
@@ -2766,17 +2763,14 @@ document.addEventListener('visibilitychange', function () {
 function goDay(d) {
   state.date = d; state.errors = [];
   render();
-  var ds = ymd(d), pairs = [], act = activeLeagues(), i;
-  for (i = 0; i < act.length; i++) { if (!load(act[i].key, ds)) pairs.push({ lg: act[i], ds: ds }); }
-  if (pairs.length && !state.syncing) runSync(pairs, true);
-  else if (state.odds) oddsSync(false);
+  /* cache only: days never synced stay empty until a pull-to-refresh / Sync all (or live sync) */
 }
 $('prevDay').addEventListener('click', function () { goDay(addDays(state.date, -1)); });
 $('nextDay').addEventListener('click', function () { goDay(addDays(state.date, 1)); });
 $('todayBtn').addEventListener('click', function () { goDay(new Date()); });
 window.addEventListener('online', function () {
   render();
-  if (state.track) trackTick(); else { syncToday(true); oddsSync(true); }
+  if (state.track) trackTick(); else if (state.live) { syncToday(true); oddsSync(true); }
 });
 window.addEventListener('offline', render);
 
@@ -2848,7 +2842,7 @@ window.addEventListener('offline', render);
 })();
 loadPrefs();
 render();
-syncToday(true);
+/* no network on launch: the app opens on saved data; refresh only by pull-down, Sync all, or live sync */
 })();
 </script>
 </body>
