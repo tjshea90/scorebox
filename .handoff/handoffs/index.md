@@ -1,0 +1,1 @@
+2026-11-08T16:45:10.802Z | scorebox, odds refresh, moves tab, pull to refresh sync, index.html, v3.0.42, e2e tests, gear header | Goal: ScoreBox app network discipline + odds refresh control + Moves tab, shipped as v3.0.42. Core Intent: save API quot | 2026-11-08/handoff-2026-11-08T16-45-10-802Z.md

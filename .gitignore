@@ -13,3 +13,6 @@ app/release/
 # simple-workflow plugin artifacts (local-only; delete entries to share via git)
 .simple-workflow/
 .simple-workflow
+
+# handoff plugin: per-session injection marker (local only)
+.handoff/.injected
