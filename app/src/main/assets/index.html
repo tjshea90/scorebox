@@ -807,11 +807,18 @@ function isToday(d) { return ymd(d) === ymd(new Date()); }
 var DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 var MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function dateLabel(d) { return DAYS[d.getDay()] + ' \u00b7 ' + MONS[d.getMonth()] + ' ' + d.getDate(); }
+/* One shared formatter: d.toLocaleTimeString([], options) builds a brand-new ICU formatter on EVERY call, which
+   made it a fifth of the time a 70-game list took to draw on a slow phone (measured at 6x CPU throttle). It is
+   rebuilt if the device's time-zone offset changes while the app is open. Same output as before. */
+var tlFmt = null, tlOff = null;
 function timeLabel(iso) {
   var d = new Date(iso);
   if (isNaN(d.getTime())) return '';
-  try { return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }); }
-  catch (e) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
+  try {
+    var off = new Date().getTimezoneOffset();
+    if (!tlFmt || tlOff !== off) { tlFmt = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }); tlOff = off; }
+    return tlFmt.format(d);
+  } catch (e) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
 }
 function ago(ts) {
   var s = Math.max(0, Math.round((Date.now() - ts) / 1000));
@@ -1051,7 +1058,15 @@ function parseScoreboard(json, lg) {
 
 /* ---------- cache ---------- */
 function keyFor(lgKey, ds) { return PFX + lgKey + ':' + ds; }
-function load(lgKey, ds) { return store.get(keyFor(lgKey, ds)); }
+/* While render() runs, a saved day is parsed ONCE and shared by everything that asks for it in that pass
+   (the tab strip alone asked for every league's day three times, each a JSON.parse of up to ~150 KB).
+   The memo exists only inside render(), whose code only reads: writers (sync, odds) always get a fresh copy. */
+var rmemo = null;
+function memoGet(k) {
+  if (!rmemo) return store.get(k);
+  return rmemo.hasOwnProperty(k) ? rmemo[k] : (rmemo[k] = store.get(k));
+}
+function load(lgKey, ds) { return memoGet(keyFor(lgKey, ds)); }
 /* keep captured halftime snapshots, and flag games whose start time moved */
 function mergeGames(prev, games) {
   if (!prev || !prev.games) return games;
@@ -1072,7 +1087,11 @@ function save(lgKey, ds, games) {
   store.set(keyFor(lgKey, ds), { t: Date.now(), games: mergeGames(load(lgKey, ds), games) });
   prune();
 }
+/* Walks every saved key, so it runs at most once a minute -- a sync used to call it after each of its ~50 saves. */
+var lastPrune = 0;
 function prune() {
+  if (Date.now() - lastPrune < 60000) return;
+  lastPrune = Date.now();
   var cutoff = ymd(addDays(new Date(), -KEEP_DAYS));
   var live = {}, ks = store.keys(), i;
   for (i = 0; i < LEAGUES.length; i++) { live[LEAGUES[i].key] = 1; }
@@ -1143,7 +1162,8 @@ function fetchLeagueDate(lg, ds) {
     }
     if (!got) throw new Error(lastErr ? String(lastErr.message || lastErr) : 'all feeds failed');
     if (lg.football) out = oneDayOnly(out, ds);
-    out.sort(function (a, b) { return String(a.start) < String(b.start) ? -1 : 1; });
+    /* equal start times must compare equal (0), or two games kicking off together can swap places between syncs */
+    out.sort(function (a, b) { var x = String(a.start), y = String(b.start); return x < y ? -1 : (x > y ? 1 : 0); });
     return out;
   });
 }
@@ -1418,7 +1438,7 @@ function bookName(k, title) { return BOOKS[k] ? BOOKS[k][0] : (title || k); }
 function bookRank(k) { return BOOKS[k] ? BOOKS[k][1] : 50; }
 
 function okeyFor(lgKey, ds) { return PFX + 'o-' + lgKey + ':' + ds; }
-function loadOdds(lgKey, ds) { return store.get(okeyFor(lgKey, ds)); }
+function loadOdds(lgKey, ds) { return memoGet(okeyFor(lgKey, ds)); }
 /* a day's game entry: { b: { <bookKey>: { n: name, s: source, full, seg, ft, st, late } } };
    entries cached by the first odds build (one book per game) are converted on the way in */
 function normEntry(e) {
@@ -2470,7 +2490,10 @@ function movesForDay(ds) {
       }
     }
   }
-  cards.sort(function (x, y) { return y.score - x.score || y.rows.length - x.rows.length || (String(x.g.start) < String(y.g.start) ? -1 : 1); });
+  cards.sort(function (x, y) {
+    var a = String(x.g.start), b = String(y.g.start);
+    return y.score - x.score || y.rows.length - x.rows.length || (a < b ? -1 : (a > b ? 1 : 0));
+  });
   return cards;
 }
 function numTxt(n) { return String(r2(n)); }
@@ -2922,6 +2945,10 @@ function renderTrack() {
 }
 
 function render() {
+  rmemo = {};
+  try { renderNow(); } finally { rmemo = null; }
+}
+function renderNow() {
   if (state.track) { renderTrack(); return; }
   if (!state.odds) state.mv = false;       /* the Moves tab only exists while Odds is on */
   var ds = ymd(state.date);
@@ -3140,8 +3167,10 @@ window.addEventListener('offline', render);
     var dist = Math.min(MAX, dy * 0.5);   /* rubber-band: half-speed drag */
     tripped = dist >= THRESHOLD;
     paint(dist, tripped ? 'release' : 'pull');
-    if (e.cancelable) e.preventDefault();
-  }, { passive: false });
+    /* No preventDefault: a pull only starts with the page already at the very top, where a downward drag has
+       nothing to scroll anyway. A non-passive document-level touchmove makes Chrome wait for the page's main
+       thread before it starts EVERY scroll, which on a busy slow phone is a visible hitch at the start of each swipe. */
+  }, { passive: true });
 
   function finish() {
     if (!dragging) return;
