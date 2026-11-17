@@ -12,3 +12,5 @@ m = re.findall(r'<script>(.*?)</script>', s, re.S)
 open(sys.argv[2], 'w', encoding='utf-8').write(max(m, key=len))
 PY
 node --check "$TMP/app.js"
+# ...and it must be ES5: an old Android WebView rejects the whole script on one newer token (see tools/es5-check.js)
+node --expose-internals "$D/tools/es5-check.js" "$TMP/app.js"

@@ -657,7 +657,7 @@ body.tracking #vrow { display: none; }
 </div>
 <div id="banner"></div>
 <main id="games"></main>
-<footer>Scores via ESPN's public feed. League tabs appear by themselves for the leagues that have games on the day you're viewing. The Scores and Odds switches under the header choose whether full-game and / or halftime (first 5 innings, first half) results show; with both odds on, the full-game and halftime boards sit side by side in the middle of the card until the game starts, and a book you pick shows both. NHL is full game only (scores and odds). Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button). Nothing is downloaded when the app opens or when you change days. Sync and pull-down always refresh schedules and scores; with Odds refresh on (settings ⚙) they also re-download the odds for today and the day you’re viewing, and with it off the saved odds stay as they are and no odds service is called. The Moves tab (Odds on) lists how far each saved line moved at the last refresh that changed it, biggest move first. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. F5 = through 5 innings · HT = halftime.</footer>
+<footer>Scores via ESPN's public feed. League tabs appear by themselves for the leagues that have games on the day you're viewing. The Scores and Odds switches under the header choose whether full-game and / or halftime (first 5 innings, first half) results show; with both odds on, the full-game and halftime boards sit side by side in the middle of the card until the game starts, and a book you pick shows both. NHL is full game only (scores and odds). Odds (optional, the Odds button under the header): today’s lines for each game — spread, total and, for MLB and NHL, the money line, plus the first half (first 5 innings for MLB) — from Pinnacle by default, plus DraftKings through ESPN and, with your own free keys, PropLine and The Odds API (Sources button). Nothing is downloaded when the app opens or when you change days. Every league tab (and every day) remembers how far you scrolled it: the first time you open one it starts at the top, and coming back puts you where you left it. Sync and pull-down always refresh schedules and scores; with Odds refresh on (settings ⚙) they also re-download the odds for today and the day you’re viewing, and with it off the saved odds stay as they are and no odds service is called. The Moves tab (Odds on) lists how far each saved line moved at the last refresh that changed it, biggest move first. Sync all re-verifies yesterday + today, stores fresh schedules through two days ahead, and re-checks the day you're viewing — every sync re-reads start times, postponements and status. NFL and CFB additionally pull the whole football week (Thu–Mon) on every sync, whatever day it is. NFL and NBA cover preseason and regular season; CFB and CBB are Division I. F5 = through 5 innings · HT = halftime.</footer>
 
 <div id="osheet" role="dialog" aria-modal="true" aria-labelledby="osheetTitle">
   <div class="sheetcard">
@@ -814,10 +814,11 @@ var state = {
 
 /* ---------- helpers ---------- */
 function $(id) { return document.getElementById(id); }
+var ESC_MAP = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' };
+function escChar(c) { return ESC_MAP[c]; }
 function esc(s) {
-  return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
-    return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
-  });
+  s = String(s == null ? '' : s);
+  return /[&<>"]/.test(s) ? s.replace(/[&<>"]/g, escChar) : s;       /* called thousands of times per render: no object per call, no work for plain text */
 }
 function pad2(n) { return (n < 10 ? '0' : '') + n; }
 function ymd(d) { return '' + d.getFullYear() + pad2(d.getMonth() + 1) + pad2(d.getDate()); }
