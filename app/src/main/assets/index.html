@@ -742,28 +742,47 @@ var ODDS_API = 'https://guest.api.arcadia.pinnacle.com/0.1/';
 var store = (function () {
   var mem = {}, ok = false;
   try { localStorage.setItem(PFX + 't', '1'); localStorage.removeItem(PFX + 't'); ok = true; } catch (e) {}
+  function keys() {
+    var out = [], i, k;
+    if (ok) {
+      for (i = 0; i < localStorage.length; i++) { k = localStorage.key(i); if (k && k.indexOf(PFX) === 0) out.push(k); }
+    }
+    for (k in mem) { if (k.indexOf(PFX) === 0 && out.indexOf(k) < 0) out.push(k); }   /* writes that did not fit live only here */
+    return out;
+  }
+  /* The cache is full (a WebView gives localStorage only ~5 MB, and a college-basketball slate with several books'
+     lines is a couple of hundred KB a day): drop the OLDEST saved day in the past -- odds before the schedule of
+     the same day -- to make room. Never today's or a future day, never prefs or API keys. False when nothing is left to drop. */
+  function evict() {
+    var today = ymd(new Date()), ks = keys(), best = null, bd = '', bo = 0, i, bits, ds, odds;
+    for (i = 0; i < ks.length; i++) {
+      bits = ks[i].split(':'); ds = bits[2];
+      if (!ds || !/^\d{8}$/.test(ds) || ds >= today || mem.hasOwnProperty(ks[i])) continue;
+      odds = /^o-/.test(bits[1]) ? 1 : 0;
+      if (best === null || ds < bd || (ds === bd && odds > bo)) { best = ks[i]; bd = ds; bo = odds; }
+    }
+    if (best === null) return false;
+    try { localStorage.removeItem(best); } catch (e) { return false; }
+    return true;
+  }
   return {
     persistent: ok,
     get: function (k) {
       try {
-        var raw = ok ? localStorage.getItem(k) : (mem[k] || null);
+        /* a copy in mem is the newer one: it exists only when the last save of this key did not fit */
+        var raw = ok ? (mem.hasOwnProperty(k) ? mem[k] : localStorage.getItem(k)) : (mem[k] || null);
         return raw ? JSON.parse(raw) : null;
       } catch (e) { return null; }
     },
     set: function (k, v) {
-      var raw = JSON.stringify(v);
-      if (ok) { try { localStorage.setItem(k, raw); } catch (e) { mem[k] = raw; } }
-      else { mem[k] = raw; }
-    },
-    keys: function () {
-      var out = [], i, k;
-      if (ok) {
-        for (i = 0; i < localStorage.length; i++) { k = localStorage.key(i); if (k && k.indexOf(PFX) === 0) out.push(k); }
-      } else {
-        for (k in mem) { if (k.indexOf(PFX) === 0) out.push(k); }
+      var raw = JSON.stringify(v), tries = 0;
+      if (!ok) { mem[k] = raw; return; }
+      for (;;) {
+        try { localStorage.setItem(k, raw); delete mem[k]; return; }
+        catch (e) { if (tries++ >= 40 || !evict()) { mem[k] = raw; return; } }   /* full: make room and retry; else keep it for this session */
       }
-      return out;
     },
+    keys: keys,
     del: function (k) { if (ok) { try { localStorage.removeItem(k); } catch (e) {} } delete mem[k]; }
   };
 })();

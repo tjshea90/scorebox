@@ -1,12 +1,15 @@
 package com.scorebox.app;
 
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.content.Intent;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
+import android.webkit.RenderProcessGoneDetail;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -99,15 +102,20 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        makeWebView();
+        web.loadUrl(START_URL);
+    }
 
+    /** Builds the one WebView and makes it the activity's content. Also used to rebuild it after the system
+     *  takes its renderer process away (see LocalClient.onRenderProcessGone). */
+    private void makeWebView() {
         web = new WebView(this);
         web.setBackgroundColor(BG);
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
+        settings.setDomStorageEnabled(true);   // localStorage: every saved schedule, score and setting lives here
         settings.setUseWideViewPort(true);
         settings.setLoadWithOverviewMode(false);
         settings.setSupportZoom(false);
@@ -124,7 +132,6 @@ public class MainActivity extends Activity {
         web.setWebChromeClient(new WebChromeClient());
 
         setContentView(web);
-        web.loadUrl(START_URL);
     }
 
     @Override
@@ -347,6 +354,25 @@ public class MainActivity extends Activity {
                 return fromAssets(uri.getPath());
             }
             return null;
+        }
+
+        /** The WebView's renderer process died. On a 2 GB phone that is usually Android reclaiming it for memory
+         *  while the app sat in the background (occasionally a real crash). Left unhandled, Android kills the whole
+         *  app along with it, so the next open is a cold start with a crash on record. Replacing the WebView and
+         *  returning true keeps the app alive: the page comes back up on its saved data (everything it needs is in
+         *  localStorage), only the on-screen position is lost. API 26+; older systems never call this. */
+        @TargetApi(Build.VERSION_CODES.O)
+        @Override
+        public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
+            Log.w(TAG, "WebView renderer gone (crashed=" + detail.didCrash() + "); rebuilding the WebView");
+            if (view != web) return true;          // an old WebView we already replaced
+            ViewGroup parent = (ViewGroup) view.getParent();
+            if (parent != null) parent.removeView(view);
+            view.destroy();
+            web = null;
+            makeWebView();
+            web.loadUrl(START_URL);
+            return true;
         }
 
         @Override
