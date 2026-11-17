@@ -1313,6 +1313,7 @@ function trackTick() {
   runSync(pairsFor(dates), true);
 }
 function setTrack(t) {
+  stashScroll();             /* the list's scroll offset, read before the tracking layout (no date bar / tabs) shifts it */
   state.track = t;
   if (state.ttimer) { clearInterval(state.ttimer); state.ttimer = null; }
   document.body.className = t ? 'tracking' : '';
@@ -2794,36 +2795,79 @@ function renderTabs() {
     else if (r > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = r - tabs.clientWidth + 6;
   }
 }
-/* remember which line-score panels the user opened/closed, so
-   live re-renders don't undo their taps */
+/* Remember which line-score panels the user opened / closed, so live re-renders don't undo their taps
+   -- and so a tab or day you come back to is laid out exactly as you left it (its scroll position is
+   a pixel offset, which only lands in the same place if the panels above it are the same height).
+   Keyed by game id, written whenever the cards are about to be swapped; the single-game track view
+   (always open) never takes part. */
+var detOpen = {}, detCount = 0;
 function detailStates() {
-  var map = {}, cards = document.querySelectorAll('#games .card'), i;
+  var cards = document.querySelectorAll('#games .card:not(.track)'), i, id, d;
   for (i = 0; i < cards.length; i++) {
-    var id = cards[i].getAttribute('data-id');
-    var d = cards[i].querySelector('details');
-    if (id && d) map[id] = d.open;
+    id = cards[i].getAttribute('data-id');
+    d = cards[i].querySelector('details');
+    if (!id || !d) continue;
+    if (!detOpen.hasOwnProperty(id)) {
+      if (++detCount > 3000) { detOpen = {}; detCount = 1; }     /* a days-long session must not grow this forever */
+    }
+    detOpen[id] = d.open;
   }
-  return map;
 }
-function restoreDetails(map) {
-  var cards = document.querySelectorAll('#games .card'), i;
+function restoreDetails() {
+  var cards = document.querySelectorAll('#games .card:not(.track)'), i, id, d;
   for (i = 0; i < cards.length; i++) {
-    var id = cards[i].getAttribute('data-id');
-    var d = cards[i].querySelector('details');
-    if (d && map.hasOwnProperty(id)) d.open = map[id];
+    id = cards[i].getAttribute('data-id');
+    d = cards[i].querySelector('details');
+    if (d && detOpen.hasOwnProperty(id) && d.open !== detOpen[id]) d.open = detOpen[id];
   }
+}
+
+/* ---------- scroll memory ----------
+   The page itself scrolls (the header is sticky and the list is re-rendered in place), so without this a
+   tab inherited whatever offset the previous tab had. Now every VIEW -- a day + a league tab, the Moves
+   tab for a day, or the single tracked game -- remembers where it was scrolled to when you left it:
+   a view you have not looked at starts at the top, and one you come back to is where you left it.
+   A re-render of the SAME view (a sync, a live tick, a toggle) keeps its place exactly as before.
+   In memory only: a fresh launch always opens at the top. */
+var scrollMem = {}, scrollOrder = [], curView = null, stashed = false;
+function viewKey() {
+  if (state.track) return 'track';
+  return ymd(state.date) + '|' + (state.mv ? 'mv' : state.league);
+}
+/* remember where the view on screen is scrolled to; called before anything about to change that view's
+   layout (setTrack hides the date bar and tabs, which can shift the offset) and again, as a no-op if
+   already done, when the cards are swapped */
+function stashScroll() {
+  if (curView === null || stashed) return;
+  stashed = true;
+  if (curView === 'track') return;                 /* one short card: nothing worth remembering */
+  if (!scrollMem.hasOwnProperty(curView)) {
+    scrollOrder.push(curView);
+    if (scrollOrder.length > 60) delete scrollMem[scrollOrder.shift()];
+  }
+  scrollMem[curView] = window.pageYOffset;
 }
 
 /* swap the cards in only when their markup actually changed -- an identical re-render (a timer tick,
    a no-op sync) used to rebuild every card, which is what made the screen blink and jump */
 var lastGames = null;
-function setGames(html, keep) {
-  var main = $('games');
-  if (html === lastGames) return;
-  lastGames = html;
-  var y = window.pageYOffset;
-  main.innerHTML = html;
-  if (keep) restoreDetails(keep);
+function setGames(html) {
+  var main = $('games'), vk = viewKey(), y;
+  if (vk !== curView) {                            /* another view: leave this one where it is, open that one where IT was */
+    stashScroll();
+    curView = vk; stashed = false;
+    y = scrollMem.hasOwnProperty(vk) ? scrollMem[vk] : 0;
+  } else {
+    stashed = false;
+    if (html === lastGames) return;
+    y = window.pageYOffset;                        /* same view: stay put */
+  }
+  if (html !== lastGames) {
+    detailStates();                                /* before the old cards go */
+    lastGames = html;
+    main.innerHTML = html;
+    restoreDetails();
+  }
   if (window.pageYOffset !== y) window.scrollTo(0, y);
 }
 
@@ -2941,11 +2985,10 @@ function render() {
     setGames('<div class="empty"><div class="big">No ' + esc(lg.label) + ' games</div>Nothing scheduled on this date.</div>');
     return;
   }
-  var keep = detailStates();
   var html = '', i;
   var oi = { oddsDay: oddsDay, isOddsDay: ds >= ymd(new Date()), remain: 0 };
   for (i = 0; i < entry.games.length; i++) { oi.remain = entry.games.length - 1 - i; html += cardHTML(entry.games[i], lg, oi); }
-  setGames(html, keep);
+  setGames(html);
 }
 
 /* ---------- events ---------- */

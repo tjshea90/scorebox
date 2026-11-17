@@ -2,7 +2,7 @@
 # Chromium end-to-end checks for app/src/main/assets/index.html with ESPN + the odds services MOCKED
 # (nothing real is contacted). Needs node + the pre-installed Playwright (`require('playwright')`).
 #
-#   bash tools/e2e/run.sh            # all three
+#   bash tools/e2e/run.sh            # all of them
 #   E2E_OUT=/some/dir bash ...       # where screenshots go (default: the OS temp dir)
 #
 # network-rules   opening the app / changing days / toggles / reload use NO network; Sync + pull-down fetch
@@ -11,6 +11,7 @@
 #                 postponements and "Rescheduled" are picked up; Moves tab ordering; header fits 360 / 320px.
 # moves-variants  money line, price-only, halftime / F5, favourite flip.
 # moves-sources   two sources writing one book (ESPN's DraftKings + PropLine) must not look like a move.
+# scroll-memory   every tab / day / Moves / tracked game starts at the top and, when you come back, is where you left it.
 set -uo pipefail
 D="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PORT=8765
@@ -19,7 +20,7 @@ SRV=$!
 trap 'kill $SRV 2>/dev/null || true' EXIT
 sleep 1
 rc=0
-for t in network-rules moves-variants moves-sources; do
+for t in network-rules moves-variants moves-sources scroll-memory; do
   echo "=== $t"
   node "$D/tools/e2e/$t.js" || rc=1
 done
