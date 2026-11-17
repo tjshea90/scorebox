@@ -1291,20 +1291,39 @@ function syncAll(only) {
   }
   runSync(pairsFor(dates), false, true);
 }
+/* Does anything in this saved day still need re-checking every few seconds? A game that is under way, flagged
+   (delayed / suspended: it may resume any moment), due to start within the half hour or already past its start
+   time, or with no start time to judge by. Finished and postponed games, and games hours away, cannot change
+   before the next manual Sync, so the live loop leaves them alone. */
+var LIVE_LOOKAHEAD_MS = 30 * 60 * 1000;
+function needsLive(games, now) {
+  var i, g, t;
+  for (i = 0; i < games.length; i++) {
+    g = games[i];
+    if (g.state === 'in') return true;
+    if (g.state === 'post' || g.flag === 'Postponed' || g.flag === 'Canceled') continue;
+    if (g.flag) return true;
+    t = new Date(g.start).getTime();
+    if (g.tbd || isNaN(t) || t - now <= LIVE_LOOKAHEAD_MS) return true;
+  }
+  return false;
+}
 /* quick sync: today's scores (plus yesterday's in the small hours,
-   so games running past midnight keep updating). `lean` skips leagues
-   already known to have nothing on that date, so a 10s live loop doesn't
-   re-pull a full college slate for a league that isn't playing. */
+   so games running past midnight keep updating). `lean` skips a league / day whose saved games
+   cannot change right now (none at all, all finished, or none due soon -- see needsLive), so a 10s
+   live loop doesn't re-download a whole college slate (~1 MB of JSON to parse on a slow phone) for
+   a league that isn't playing. The first sync after Live is switched on is never lean. */
 function syncToday(silent, lean) {
   var now = new Date();
   var list = [ymd(now)];
   if (now.getHours() < 4) list.unshift(ymd(addDays(now, -1)));
-  var dates = {}, act = activeLeagues(), i, j, keep, e;
+  var dates = {}, act = activeLeagues(), i, j, keep, e, t = now.getTime();
   for (i = 0; i < act.length; i++) {
     keep = [];
     for (j = 0; j < list.length; j++) {
       e = lean ? load(act[i].key, list[j]) : null;
-      if (!(e && e.games && !e.games.length)) keep.push(list[j]);
+      if (e && e.games && !needsLive(e.games, t)) continue;
+      keep.push(list[j]);
     }
     dates[act[i].key] = keep;
   }
@@ -2805,35 +2824,40 @@ function renderTabs() {
   }
   /* the Moves tab: how far the saved lines have moved (Odds on only; it reads saved data, no network) */
   if (state.odds && act.length) html += '<button data-mv="1" class="mvtab' + (state.mv ? ' on' : '') + '">Moves</button>';
-  var sl = tabs.scrollLeft;
-  tabs.innerHTML = html;
-  tabs.scrollLeft = sl;
-  /* with more tabs than fit, the strip scrolls sideways: keep the current one on screen */
-  var on = tabs.querySelector('button.on');
   tabs.style.display = act.length ? '' : 'none';
   $('totCount').textContent = act.length ? total + ' game' + (total === 1 ? '' : 's') : '';
-  if (on) {
-    var l = on.offsetLeft, r = l + on.offsetWidth;
-    if (l < tabs.scrollLeft) tabs.scrollLeft = Math.max(0, l - 6);
-    else if (r > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = r - tabs.clientWidth + 6;
+  /* rewrite the strip only when it differs: every live tick used to rebuild the buttons and force a layout */
+  if (html !== lastTabs) {
+    lastTabs = html;
+    var sl = tabs.scrollLeft;
+    tabs.innerHTML = html;
+    tabs.scrollLeft = sl;
+    /* with more tabs than fit, the strip scrolls sideways: keep the current one on screen */
+    var on = tabs.querySelector('button.on');
+    if (on) {
+      var l = on.offsetLeft, r = l + on.offsetWidth;
+      if (l < tabs.scrollLeft) tabs.scrollLeft = Math.max(0, l - 6);
+      else if (r > tabs.scrollLeft + tabs.clientWidth) tabs.scrollLeft = r - tabs.clientWidth + 6;
+    }
   }
 }
+var lastTabs = null;
 /* Remember which line-score panels the user opened / closed, so live re-renders don't undo their taps
    -- and so a tab or day you come back to is laid out exactly as you left it (its scroll position is
    a pixel offset, which only lands in the same place if the panels above it are the same height).
    Keyed by game id, written whenever the cards are about to be swapped; the single-game track view
    (always open) never takes part. */
 var detOpen = {}, detCount = 0;
+function noteOpen(id, open) {
+  if (!detOpen.hasOwnProperty(id) && ++detCount > 3000) { detOpen = {}; detCount = 1; }   /* a days-long session must not grow this forever */
+  detOpen[id] = open;
+}
 function detailStates() {
   var cards = document.querySelectorAll('#games .card:not(.track)'), i, id, d;
   for (i = 0; i < cards.length; i++) {
     id = cards[i].getAttribute('data-id');
     d = cards[i].querySelector('details');
-    if (!id || !d) continue;
-    if (!detOpen.hasOwnProperty(id)) {
-      if (++detCount > 3000) { detOpen = {}; detCount = 1; }     /* a days-long session must not grow this forever */
-    }
-    detOpen[id] = d.open;
+    if (id && d) noteOpen(id, d.open);
   }
 }
 function restoreDetails() {
@@ -2871,27 +2895,62 @@ function stashScroll() {
   scrollMem[curView] = window.pageYOffset;
 }
 
-/* swap the cards in only when their markup actually changed -- an identical re-render (a timer tick,
-   a no-op sync) used to rebuild every card, which is what made the screen blink and jump */
-var lastGames = null;
-function setGames(html) {
-  var main = $('games'), vk = viewKey(), y;
+/* Swap the cards in only when their markup actually changed -- an identical re-render (a timer tick,
+   a no-op sync) used to rebuild every card, which is what made the screen blink and jump.
+   `content` is an HTML string, or (the game list) an array of { id, h }: one entry per card, which lets a
+   re-draw of the same list replace just the cards that changed (see patchCards). */
+var lastGames = null, lastItems = null;
+function joinCards(items) {
+  var s = '', i;
+  for (i = 0; i < items.length; i++) s += items[i].h;
+  return s;
+}
+function setGames(content) {
+  var items = typeof content === 'string' ? null : content, html = items ? joinCards(items) : content;
+  var main = $('games'), vk = viewKey(), y, same;
   if (vk !== curView) {                            /* another view: leave this one where it is, open that one where IT was */
     stashScroll();
-    curView = vk; stashed = false;
+    curView = vk; stashed = false; same = false;
     y = scrollMem.hasOwnProperty(vk) ? scrollMem[vk] : 0;
   } else {
-    stashed = false;
+    stashed = false; same = true;
     if (html === lastGames) return;
-    y = window.pageYOffset;                        /* same view: stay put */
   }
   if (html !== lastGames) {
+    if (same && patchCards(items)) {               /* only the changed cards were swapped: everything else, and the scroll offset, stays as it is */
+      lastGames = html; lastItems = items;
+      return;
+    }
     detailStates();                                /* before the old cards go */
-    lastGames = html;
+    if (same) y = window.pageYOffset;              /* same view, full redraw: stay put */
+    lastGames = html; lastItems = items;
     main.innerHTML = html;
     restoreDetails();
   }
   if (window.pageYOffset !== y) window.scrollTo(0, y);
+}
+/* The same list of games drawn again with a few cards changed (a live tick, a sync): swap just those cards.
+   A different set or order of games is a full redraw instead. Unchanged cards keep their DOM, so a 60-card slate
+   no longer blinks or loses a swipe in progress every ten seconds, and it costs a couple of ms instead of ~40
+   (at 6x throttle). Returns false when it cannot, having touched nothing that a full redraw would not replace. */
+function patchCards(items) {
+  var main = $('games'), kids = main.children, i, tmp, fresh, d, id;
+  if (!items || !lastItems || items.length !== lastItems.length || kids.length !== items.length) return false;
+  for (i = 0; i < items.length; i++) { if (items[i].id !== lastItems[i].id) return false; }
+  tmp = document.createElement('div');
+  for (i = 0; i < items.length; i++) {
+    if (items[i].h === lastItems[i].h) continue;
+    tmp.innerHTML = items[i].h;
+    fresh = tmp.firstChild;
+    if (!fresh) return false;
+    id = items[i].id;
+    d = kids[i].querySelector('details');
+    if (d) noteOpen(id, d.open);                   /* the panel as the user left it carries over to the new card */
+    main.replaceChild(fresh, kids[i]);
+    d = fresh.querySelector('details');
+    if (d && detOpen.hasOwnProperty(id) && d.open !== detOpen[id]) d.open = detOpen[id];
+  }
+  return true;
 }
 
 /* the status line under the header ("Updated 3m ago · Odds 2m ago") -- cheap to call on its own */
@@ -3012,10 +3071,13 @@ function renderNow() {
     setGames('<div class="empty"><div class="big">No ' + esc(lg.label) + ' games</div>Nothing scheduled on this date.</div>');
     return;
   }
-  var html = '', i;
+  var items = [], i;
   var oi = { oddsDay: oddsDay, isOddsDay: ds >= ymd(new Date()), remain: 0 };
-  for (i = 0; i < entry.games.length; i++) { oi.remain = entry.games.length - 1 - i; html += cardHTML(entry.games[i], lg, oi); }
-  setGames(html);
+  for (i = 0; i < entry.games.length; i++) {
+    oi.remain = entry.games.length - 1 - i;
+    items.push({ id: entry.games[i].id, h: cardHTML(entry.games[i], lg, oi) });
+  }
+  setGames(items);
 }
 
 /* ---------- events ---------- */
