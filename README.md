@@ -39,6 +39,9 @@ app/src/main/
   res/                                      launcher icon, theme, app name
 keystore/scorebox-release.jks               release signing key (see Releases)
 .github/workflows/build-release.yml         CI: builds + publishes the APK
+tools/e2e/                                  Chromium end-to-end suite (bash tools/e2e/run.sh)
+tools/perf/                                 real-data profiling under CPU throttling
+tools/test_syntax.sh, tools/es5-check.js    fast guards: syntax + ES5-only
 ```
 
 ## College basketball filter
@@ -63,7 +66,13 @@ The network is used only by:
   cancellations are picked up. With **Odds** on *and* **Odds refresh** on they
   also re-download the odds for today and, if a different day is open, that
   day's lines (Pinnacle's league feed is shared between the two).
-- **Live sync** / **Track live** — scores only, never odds.
+- **Live sync** / **Track live** — scores only, never odds. Live sync is lean:
+  after its first full pass it only re-downloads a league (and day) that can
+  still change — a game under way, delayed or suspended, due to start within
+  30 minutes (or already past its start time), or one it has not looked at for
+  2 hours. A slate that is all finished, or hours away, is left alone until
+  then (a Sync always refreshes everything), so a quiet college-basketball
+  slate is not re-downloaded and re-parsed every 10 seconds.
 
 **Odds refresh** (settings, behind the gear): *off* keeps the saved odds on
 screen and never calls any odds service — Pinnacle, PropLine and The Odds API
@@ -85,6 +94,62 @@ points as-is, money line 10¢ = 1 point, price-only 20¢ = 1 point. It follows t
 **Books** picker (Pinnacle first when on auto) and the Full game / Halftime
 switches, reads saved data only, and a move stays listed (with its age) until
 that line moves again.
+
+## Scroll position per tab
+
+Every *view* — a day plus a league tab, the Moves tab for a day, or the single
+tracked game — remembers how far it was scrolled when you left it. A view you
+have not looked at starts at the **top**; coming back to one puts you exactly
+where you left it, including its opened line-score panels (the pixel offset is
+only meaningful if the panels above it are the same height, so those are
+remembered too). A re-render of the *same* view — a sync, a live tick, a toggle —
+never moves you. Day navigation and **Track live → ‹ All games** use the same
+memory (before, both lost your place). It is kept in memory only (at most 60
+views), so a fresh launch always opens at the top.
+
+Implementation: `viewKey()` / `stashScroll()` / `setGames()` in `index.html`;
+`setTrack()` stashes *before* the tracking layout hides the date bar and tabs.
+Test: `tools/e2e/scroll-memory.js`.
+
+## Low-end phones (Android 10 Go, MT8168, 2 GB)
+
+The target hardware is a slow quad Cortex-A53 with 2 GB and, possibly, an old
+frozen System WebView. What that means for the code:
+
+- **The page stays plain ES5** (`var` / `function`, no `=>`, `let`, `const`,
+  template strings, `?.`, `...`, `async`). An old WebView refuses the *whole*
+  script on one newer token — a blank app. `tools/test_syntax.sh` enforces it
+  (`tools/es5-check.js`, Node's bundled acorn, offline). CSS: no `gap` without
+  the `.nogap` fallback, no `content-visibility` (it also breaks restoring a
+  scroll position on freshly built cards), no `contain` (measured *slower*).
+- **Measure, don't guess**: `tools/perf/` replays real ESPN payloads
+  (`python3 tools/perf/fetch-fixtures.py`) through the app in Chromium under CPU
+  throttling (`node tools/perf/tabs.js 6 [odds]` = median cost of a tab switch;
+  `prof-cpu.js` = where the time goes; `profile.js` = sync / cold start / live).
+  6× throttle ≈ this phone class.
+- What the audit found and fixed (6× throttle, 55-card college-basketball tab,
+  median): a tab switch 75 → 56 ms (136 ms instead of 184 with odds on).
+  `toLocaleTimeString(…, options)` builds a new ICU formatter per call (a fifth
+  of render time) → one shared `Intl.DateTimeFormat`; every render parsed each
+  saved day 3–4× → a per-render memo (writers bypass it); a re-draw rebuilt every
+  card → only changed cards are swapped (nothing blinks, a swipe is not
+  interrupted, ~2 ms instead of ~40); the tab strip is only rewritten when it
+  differs; `prune()` ran after each of a sync's ~50 saves → at most once a
+  minute; the pull-to-refresh `touchmove` listener was non-passive, which makes
+  Chrome wait for the page before starting *every* scroll → passive; sort
+  comparators now return 0 on ties (equal start times could swap between syncs).
+- **Robustness**: `MainActivity.onRenderProcessGone` replaces the WebView when
+  Android reclaims its renderer process under memory pressure (unhandled, the
+  whole app dies; a second loss within 10 s exits cleanly instead of looping).
+  A full `localStorage` (~5 MB) no longer silently loses a sync's data: the
+  oldest saved day (odds first; never yesterday, today, a future day or the day
+  on screen) is dropped to make room, and if nothing can be, the data stays
+  usable for the session.
+- Not done, on purpose: `content-visibility`/`contain` (above); re-fetching
+  *yesterday* only when it could still change (the product rule is that every
+  Sync re-verifies yesterday + today); pausing the live-dot `pulse` animation
+  (a design choice — it keeps the compositor producing frames while a live game
+  is on screen, which costs some battery).
 
 ## Odds (optional)
 

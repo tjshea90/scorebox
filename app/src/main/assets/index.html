@@ -751,13 +751,14 @@ var store = (function () {
     return out;
   }
   /* The cache is full (a WebView gives localStorage only ~5 MB, and a college-basketball slate with several books'
-     lines is a couple of hundred KB a day): drop the OLDEST saved day in the past -- odds before the schedule of
-     the same day -- to make room. Never today's or a future day, never prefs or API keys. False when nothing is left to drop. */
+     lines is a couple of hundred KB a day): drop the OLDEST saved day -- odds before the schedule of the same day -- to
+     make room. Never yesterday, today, a future day or the day on screen, never prefs or API keys. False when nothing is left to drop. */
   function evict() {
-    var today = ymd(new Date()), ks = keys(), best = null, bd = '', bo = 0, i, bits, ds, odds;
+    var keep = ymd(addDays(new Date(), -1)), shown = (typeof state === 'object' && state && state.date) ? ymd(state.date) : '', ks = keys(), best = null, bd = '', bo = 0, i, bits, ds, odds;
     for (i = 0; i < ks.length; i++) {
       bits = ks[i].split(':'); ds = bits[2];
-      if (!ds || !/^\d{8}$/.test(ds) || ds >= today || mem.hasOwnProperty(ks[i])) continue;
+      /* yesterday is still live after midnight (syncToday), and the day on screen is in use: never those */
+      if (!ds || !/^\d{8}$/.test(ds) || ds >= keep || ds === shown || mem.hasOwnProperty(ks[i])) continue;
       odds = /^o-/.test(bits[1]) ? 1 : 0;
       if (best === null || ds < bd || (ds === bd && odds > bo)) { best = ks[i]; bd = ds; bo = odds; }
     }
@@ -829,14 +830,17 @@ var MONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct'
 function dateLabel(d) { return DAYS[d.getDay()] + ' \u00b7 ' + MONS[d.getMonth()] + ' ' + d.getDate(); }
 /* One shared formatter: d.toLocaleTimeString([], options) builds a brand-new ICU formatter on EVERY call, which
    made it a fifth of the time a 70-game list took to draw on a slow phone (measured at 6x CPU throttle). It is
-   rebuilt if the device's time-zone offset changes while the app is open. Same output as before. */
-var tlFmt = null, tlOff = null;
+   rebuilt if the device's time zone changes while the app is open. Same output as before. */
+var tlFmt = null, tlSeen = '', tlSig = null;
+function zoneSig() {   /* now's offset plus January's and July's: two zones with the same offset today still differ in their DST rules */
+  return new Date().getTimezoneOffset() + '|' + new Date(2021, 0, 1).getTimezoneOffset() + '|' + new Date(2021, 6, 1).getTimezoneOffset();
+}
 function timeLabel(iso) {
   var d = new Date(iso);
   if (isNaN(d.getTime())) return '';
   try {
-    var off = new Date().getTimezoneOffset();
-    if (!tlFmt || tlOff !== off) { tlFmt = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }); tlOff = off; }
+    if (tlSig === null) tlSig = zoneSig();         /* once per render pass (render() clears it), not once per card */
+    if (!tlFmt || tlSeen !== tlSig) { tlFmt = new Intl.DateTimeFormat([], { hour: 'numeric', minute: '2-digit' }); tlSeen = tlSig; }
     return tlFmt.format(d);
   } catch (e) { return pad2(d.getHours()) + ':' + pad2(d.getMinutes()); }
 }
@@ -1087,6 +1091,8 @@ function memoGet(k) {
   return rmemo.hasOwnProperty(k) ? rmemo[k] : (rmemo[k] = store.get(k));
 }
 function load(lgKey, ds) { return memoGet(keyFor(lgKey, ds)); }
+/* ...while the code that WRITES (sync, odds) always reads what is really stored, never the render memo */
+function loadFresh(lgKey, ds) { return store.get(keyFor(lgKey, ds)); }
 /* keep captured halftime snapshots, and flag games whose start time moved */
 function mergeGames(prev, games) {
   if (!prev || !prev.games) return games;
@@ -1104,7 +1110,7 @@ function mergeGames(prev, games) {
   return games;
 }
 function save(lgKey, ds, games) {
-  store.set(keyFor(lgKey, ds), { t: Date.now(), games: mergeGames(load(lgKey, ds), games) });
+  store.set(keyFor(lgKey, ds), { t: Date.now(), games: mergeGames(loadFresh(lgKey, ds), games) });
   prune();
 }
 /* Walks every saved key, so it runs at most once a minute -- a sync used to call it after each of its ~50 saves. */
@@ -1314,9 +1320,10 @@ function syncAll(only) {
 /* Does anything in this saved day still need re-checking every few seconds? A game that is under way, flagged
    (delayed / suspended: it may resume any moment), due to start within the half hour or already past its start
    time, or with no start time to judge by. Finished and postponed games, and games hours away, cannot change
-   before the next manual Sync, so the live loop leaves them alone. */
-var LIVE_LOOKAHEAD_MS = 30 * 60 * 1000;
-function needsLive(games, now) {
+   before the next manual Sync, so the live loop leaves them alone -- except to look again every couple of hours
+   (a start time can move or a game be postponed after the day was saved). */
+var LIVE_LOOKAHEAD_MS = 30 * 60 * 1000, LIVE_RECHECK_MS = 2 * 60 * 60 * 1000;
+function needsLive(games, now, savedAt) {
   var i, g, t;
   for (i = 0; i < games.length; i++) {
     g = games[i];
@@ -1325,6 +1332,7 @@ function needsLive(games, now) {
     if (g.flag) return true;
     t = new Date(g.start).getTime();
     if (g.tbd || isNaN(t) || t - now <= LIVE_LOOKAHEAD_MS) return true;
+    if (now - (savedAt || 0) > LIVE_RECHECK_MS) return true;   /* a start time can still move: look again at least every 2 h */
   }
   return false;
 }
@@ -1342,7 +1350,7 @@ function syncToday(silent, lean) {
     keep = [];
     for (j = 0; j < list.length; j++) {
       e = lean ? load(act[i].key, list[j]) : null;
-      if (e && e.games && !needsLive(e.games, t)) continue;
+      if (e && e.games && !needsLive(e.games, t, e.t)) continue;
       keep.push(list[j]);
     }
     dates[act[i].key] = keep;
@@ -1478,6 +1486,7 @@ function bookRank(k) { return BOOKS[k] ? BOOKS[k][1] : 50; }
 
 function okeyFor(lgKey, ds) { return PFX + 'o-' + lgKey + ':' + ds; }
 function loadOdds(lgKey, ds) { return memoGet(okeyFor(lgKey, ds)); }
+function loadOddsFresh(lgKey, ds) { return store.get(okeyFor(lgKey, ds)); }
 /* a day's game entry: { b: { <bookKey>: { n: name, s: source, full, seg, ft, st, late } } };
    entries cached by the first odds build (one book per game) are converted on the way in */
 function normEntry(e) {
@@ -1902,7 +1911,7 @@ function markMoves(snap, now) {
     before = snap[key];
     if (!before || !before.games) continue;
     bits = key.split(':');
-    after = loadOdds(bits[0], bits[1]);
+    after = loadOddsFresh(bits[0], bits[1]);
     if (!after || !after.games) continue;
     dirty = false;
     for (gid in after.games) {
@@ -1928,7 +1937,7 @@ function markMoves(snap, now) {
    ahead; ESPN's line is also the closing line for a game that began before the app ever saw
    its pre-game one. Returns true when anything changed. */
 function applyBooks(lg, ds, games, perGame, srcId, stamp, sbT) {
-  var day = loadOdds(lg.key, ds) || { t: 0, games: {} }, before = JSON.stringify(day), i, g, e, data, cur, k, eo, any, keys;
+  var day = loadOddsFresh(lg.key, ds) || { t: 0, games: {} }, before = JSON.stringify(day), i, g, e, data, cur, k, eo, any, keys;
   if (srcId && stamp) {
     day.st = day.st || {};
     day.st[srcId] = stamp;
@@ -1982,7 +1991,7 @@ function applyBooks(lg, ds, games, perGame, srcId, stamp, sbT) {
 }
 /* the no-network part: fold ESPN's embedded lines in from the cached schedule */
 function oddsLocal(lg, ds) {
-  var sb = load(lg.key, ds);
+  var sb = loadFresh(lg.key, ds);
   if (!sb || !sb.games || !sb.games.length) return false;
   return applyBooks(lg, ds, sb.games, null, null, 0, sb.t);
 }
@@ -2019,7 +2028,7 @@ function oddsSync(force) {
   var now = new Date(), yds = ymd(addDays(now, -1)), act = activeLeagues(), days = oddsDays();
   var work = [], notes = {}, changed = false, i, j, d, lg, sb, od, pre, ids, k, ds, snap = {};
   for (i = 0; i < act.length; i++) {     /* the saved lines as they are right now: the Moves tab compares them with the round's result */
-    for (d = 0; d < days.length; d++) { snap[act[i].key + ':' + days[d]] = loadOdds(act[i].key, days[d]); }
+    for (d = 0; d < days.length; d++) { snap[act[i].key + ':' + days[d]] = loadOddsFresh(act[i].key, days[d]); }
   }
   function isDue(id, ms) { var t = od && od.st && od.st[id]; return force || !t || Date.now() - t >= ms; }
   for (i = 0; i < act.length; i++) {
@@ -2028,12 +2037,12 @@ function oddsSync(force) {
     for (d = 0; d < days.length; d++) {
       ds = days[d];
       if (oddsLocal(lg, ds)) changed = true;
-      sb = load(lg.key, ds);
+      sb = loadFresh(lg.key, ds);
       if (!sb || !sb.games) continue;
       pre = false;
       for (j = 0; j < sb.games.length; j++) { if (sb.games[j].state === 'pre' && !sb.games[j].flag) { pre = true; break; } }
       if (!pre) continue;                       /* nothing left to bet ahead of: no download */
-      od = loadOdds(lg.key, ds);
+      od = loadOddsFresh(lg.key, ds);
       if (lg.pin && srcOn('pinnacle') && isDue('pinnacle', ODDS_REFRESH_MS)) work.push({ lg: lg, sb: sb, od: od, ds: ds, id: 'pinnacle', force: force });
       ids = ['propline', 'oddsapi'];
       for (k = 0; k < ids.length; k++) {
@@ -3024,8 +3033,8 @@ function renderTrack() {
 }
 
 function render() {
-  rmemo = {};
-  try { renderNow(); } finally { rmemo = null; }
+  rmemo = {}; tlSig = null;
+  try { renderNow(); } finally { rmemo = null; tlSig = null; }
 }
 function renderNow() {
   if (state.track) { renderTrack(); return; }

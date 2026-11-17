@@ -3,8 +3,8 @@
       time-zone change made while the app is open (the formatter is reused, not rebuilt per card)
    B  a re-draw of the same list swaps only the cards that changed: untouched cards keep their DOM, the scroll offset
       stays, an open line score stays open; a different set of games is a full redraw
-   C  Live sync skips a league / day that cannot change right now (all finished, or nothing due within 30 minutes) and
-      keeps polling anything live, delayed or about to start
+   C  Live sync skips a league / day that cannot change right now (all finished, or nothing due within 30 minutes, and
+      looked at in the last 2 h) and keeps polling anything live, delayed or about to start
    D  the pull-to-refresh touchmove listener never cancels the swipe (a blocking listener delays every scroll start) */
 const { chromium } = require('playwright');
 const PORT = process.env.E2E_PORT || 8765;
@@ -181,11 +181,24 @@ async function waitIdle(page) {
     const L1 = todayLeagues();
     check('C2 first live tick polls only the live NFL game and the WNBA game due in 10 min', JSON.stringify(L1) === JSON.stringify(['basketball/wnba', 'football/nfl']), L1);
     check('C3 ...not the finished NBA slate, and not the NHL games 3 hours away', L1.indexOf('basketball/nba') < 0 && L1.indexOf('hockey/nhl') < 0, L1);
+    /* a quiet day is still looked at again every 2 h (a start time can move after the day was saved): 125 min on, the NHL
+       games are 55 min away -- not due yet -- but the saved copy is older than 2 h, so they are fetched once ... */
     log.length = 0;
-    await page.clock.fastForward(150 * 60000);       // 2.5 h later: the NHL games are now 30 minutes away
+    await page.clock.fastForward(125 * 60000);
     await page.clock.runFor(10500); await page.waitForTimeout(1200);
     const L2 = todayLeagues();
-    check('C4 once the NHL games are within 30 minutes the live loop polls them too (' + L2.join(', ') + ')', L2.indexOf('hockey/nhl') >= 0 && L2.indexOf('basketball/nba') < 0, L2);
+    check('C4 a quiet league is re-checked once its saved copy is over 2 h old (' + L2.join(', ') + ')', L2.indexOf('hockey/nhl') >= 0 && L2.indexOf('basketball/nba') < 0, L2);
+    /* ... and not again at the next tick, since that fetch refreshed it */
+    log.length = 0;
+    await page.clock.runFor(10500); await page.waitForTimeout(1200);
+    const L3 = todayLeagues();
+    check('C5 ...then left alone again at the next tick (' + L3.join(', ') + ')', L3.indexOf('hockey/nhl') < 0 && L3.indexOf('basketball/nba') < 0, L3);
+    /* 30 min later the NHL games are within 30 minutes of starting: polled every tick from here on */
+    log.length = 0;
+    await page.clock.fastForward(30 * 60000);
+    await page.clock.runFor(10500); await page.waitForTimeout(1200);
+    const L4 = todayLeagues();
+    check('C6 once the NHL games are within 30 minutes the live loop polls them (' + L4.join(', ') + ')', L4.indexOf('hockey/nhl') >= 0 && L4.indexOf('basketball/nba') < 0, L4);
     await ctx.close();
   }
 

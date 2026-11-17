@@ -6,6 +6,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
 import android.view.ViewGroup;
@@ -98,6 +99,7 @@ public class MainActivity extends Activity {
         + "Chrome/128.0.0.0 Mobile Safari/537.36";
 
     private WebView web;
+    private long lastRendererGone = 0;   // elapsedRealtime of the last renderer loss, to tell a one-off from a crash loop
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -364,12 +366,19 @@ public class MainActivity extends Activity {
         @TargetApi(Build.VERSION_CODES.O)
         @Override
         public boolean onRenderProcessGone(WebView view, RenderProcessGoneDetail detail) {
-            Log.w(TAG, "WebView renderer gone (crashed=" + detail.didCrash() + "); rebuilding the WebView");
+            long now = SystemClock.elapsedRealtime();
+            boolean again = lastRendererGone != 0 && now - lastRendererGone < 10000;
+            lastRendererGone = now;
+            Log.w(TAG, "WebView renderer gone (crashed=" + detail.didCrash() + ", again=" + again + ")");
             if (view != web) return true;          // an old WebView we already replaced
             ViewGroup parent = (ViewGroup) view.getParent();
             if (parent != null) parent.removeView(view);
             view.destroy();
             web = null;
+            if (again) {                           // died again right after a rebuild (e.g. it cannot even load): leave cleanly, no loop
+                finish();
+                return true;
+            }
             makeWebView();
             web.loadUrl(START_URL);
             return true;
