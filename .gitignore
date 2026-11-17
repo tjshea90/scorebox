@@ -16,3 +16,6 @@ app/release/
 
 # handoff plugin: per-session injection marker (local only)
 .handoff/.injected
+
+# perf harness fixtures (re-download: python3 tools/perf/fetch-fixtures.py)
+tools/perf/fixtures/
