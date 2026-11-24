@@ -38,7 +38,7 @@ different point, so one release's changes kept going missing from the next
   top (`viewKey` / `stashScroll` / `setGames`). Same-view re-renders keep their place. `setTrack` stashes first.
 - **Rendering**: the list is drawn as `[{id, h}]` per card and only changed cards are swapped (`patchCards`).
   `render()` memoises saved-day parses for ONE pass; anything that writes uses `loadFresh` / `loadOddsFresh`.
-- Tests that must pass before landing: `bash tools/test_syntax.sh && bash tools/e2e/run.sh` (6 scripts, ~110 checks).
+- Tests that must pass before landing: `bash tools/test_syntax.sh && bash tools/e2e/run.sh` (7 scripts, ~124 checks).
 - **Mid-task checkpoints**: `tools/ckpt.sh` / `tools/push.sh` also fast-forward `main` after EVERY checkpoint, i.e. a release
   build of half-finished work (and ckpt.sh installs session hooks). While a change is not validated, checkpoint with
   plain `git add -A && git commit && git push origin HEAD` (session branch only) and land on `main` once, when green.
@@ -97,7 +97,7 @@ than assuming a long-lived local branch is current.
 - Owner device: Android 10 Go, MediaTek MT8168 (4x A53), 2 GB RAM, possibly old frozen System WebView; targetSdk 29 minSdk 21; page must stay ES5 (tools/test_syntax.sh fails on =>, let/const, template strings, ?., ..., async); new flex-gap rows need .nogap margin fallback
 - localStorage ~5 MB; prefix sbx2:; schedules sbx2:<league>:<yyyymmdd>; odds sbx2:o-<league>:<yyyymmdd>; API keys sbx2:okeys; prefs sbx2:prefs
 - Repo rules (CLAUDE.md): main = single source of truth; git fetch origin main and git log HEAD..origin/main must be empty before work; git push origin HEAD:main (explicitly authorised by CLAUDE.md) triggers Build and release APK; tag v<versionName>.<run_number>; after EVERY app change wait for the run and give user the direct .apk link unprompted
-- Validate before landing: bash tools/test_syntax.sh && bash tools/e2e/run.sh (6 scripts, 111 PASS lines; assets served on :8765; Playwright preinstalled; page.clock for fake timers). Perf: python3 tools/perf/fetch-fixtures.py then node tools/perf/tabs.js 6 [odds]; 6x CPU throttle approximates the phone
+- Validate before landing: bash tools/test_syntax.sh && bash tools/e2e/run.sh (7 scripts, 124 PASS lines; assets served on :8765; Playwright preinstalled; page.clock for fake timers). Perf: python3 tools/perf/fetch-fixtures.py then node tools/perf/tabs.js 6 [odds]; 6x CPU throttle approximates the phone
 - Java check without Gradle (AGP 8.1.4 / SDK 34 not available offline): stub BuildConfig + javac -source 8 against /opt/android-sdk/platforms/android-36/android.jar
 - Mid-task checkpoints: plain git add/commit/push origin HEAD (session branch ccr-9a324f66-09lfk4); tools/ckpt.sh and tools/push.sh fast-forward main each time (release per checkpoint) and install session hooks; CHECKPOINT.md is the cold-resume file
 - User prefs: frequent GitHub checkpoints + handoff protocol so usage cutoffs lose nothing; longer sessions and more usage fine if product better; their other apps target Android 16
@@ -128,3 +128,4 @@ than assuming a long-lived local branch is current.
 - Decision: tools/e2e (Chromium, mocked services) + tools/test_syntax.sh are the regression guards; ckpt.sh runs every tools/test_*.sh (must stay fast) — Reason: guard network rules and blank-app syntax errors
 
 <!-- handoff:learnings:end -->
+- Decision: fetchJSON reads the body as text and parses it itself; an empty / cut-off / unparseable 200 body is retried ONCE after 700 ms, a second bad body reports "the server sent an empty|unreadable answer (tried twice)"; HTTP errors, timeouts and offline failures are never retried — Reason: the native relay streams the upstream body straight through, so a dropped connection reaches the page as a short "200 OK" and r.json() showed the opaque "Unexpected end of JSON input" banner (NHL, build 44); relay NOT changed to buffer bodies (would put a 1.2 MB CBB download under the page's 20 s timeout; untestable off-device); guard: tools/e2e/bad-body.js

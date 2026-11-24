@@ -876,7 +876,8 @@ function textOn(hex) {
    Matches MainActivity's native relay timeout (TIMEOUT_MS) -- this one must
    stay >= that one, or the page aborts the request before the relay's own
    longer budget ever gets a chance to finish it. */
-function fetchJSON(url) {
+function badBody(msg) { var e = new Error(msg); e.badBody = true; return e; }
+function fetchJSONOnce(url) {
   return new Promise(function (resolve, reject) {
     var ctl = null, to = null;
     try { ctl = new AbortController(); } catch (e) {}
@@ -892,10 +893,31 @@ function fetchJSON(url) {
             throw new Error('HTTP ' + r.status + (body ? ': ' + body.slice(0, 500) : ''));
           });
         }
-        return r.json();
+        /* Read as text and parse here (not r.json()): the relay streams the upstream body straight through, so a
+           dropped connection arrives as a "200 OK" that is empty or cut off, and r.json() would turn that into the
+           opaque "Unexpected end of JSON input". Such a body is marked retryable (see fetchJSON). */
+        return r.text().then(function (t) {
+          if (!/\S/.test(t)) throw badBody('the server sent an empty answer');
+          try { return JSON.parse(t); }
+          catch (e) { throw badBody('the server sent an unreadable answer (' + t.length + ' characters, cut off?)'); }
+        }, function (e) { if (e && typeof e === 'object') e.badBody = true; throw e; });   /* body read failed mid-way: keep the original message so netLike still files it as a network blip */
       })
       .then(resolve)
       .catch(function (e) { if (to) clearTimeout(to); reject(e); });
+  });
+}
+/* A 200 whose body is empty, cut off or unreadable is retried ONCE after a short pause (it is almost always a
+   dropped connection). HTTP errors, timeouts and offline failures are never retried here -- those would only add
+   load to a server that is already struggling. A second bad body is reported in plain words. */
+function fetchJSON(url) {
+  return fetchJSONOnce(url).catch(function (e) {
+    if (!e || !e.badBody) throw e;
+    return new Promise(function (go) { setTimeout(go, 700); })
+      .then(function () { return fetchJSONOnce(url); })
+      .catch(function (e2) {
+        if (e2 && e2.badBody && typeof e2.message === 'string') e2.message += ' (tried twice)';
+        throw e2;
+      });
   });
 }
 

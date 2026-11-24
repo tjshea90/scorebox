@@ -14,6 +14,7 @@
 # live-render     start times = platform formatter; only changed cards swapped; Live sync skips leagues that cannot change.
 # storage-quota   a full localStorage evicts the oldest past days / keeps data for the session instead of silently losing it.
 # scroll-memory   every tab / day / Moves / tracked game starts at the top and, when you come back, is where you left it.
+# bad-body        an empty / cut-off 200 answer is retried once (no scary banner), twice-bad is reported plainly; HTTP errors are not retried.
 set -uo pipefail
 D="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PORT=8765
@@ -22,7 +23,7 @@ SRV=$!
 trap 'kill $SRV 2>/dev/null || true' EXIT
 sleep 1
 rc=0
-for t in network-rules moves-variants moves-sources scroll-memory live-render storage-quota; do
+for t in network-rules moves-variants moves-sources scroll-memory live-render storage-quota bad-body; do
   echo "=== $t"
   node "$D/tools/e2e/$t.js" || rc=1
 done
