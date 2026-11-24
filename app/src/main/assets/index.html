@@ -1064,7 +1064,7 @@ function parseScoreboard(json, lg) {
       away: parseTeam(away),
       home: parseTeam(home)
     };
-    var eo = parseEspnOdds(comp.odds);   /* ESPN's embedded line (DraftKings): backs up the odds feature */
+    var eo = parseEspnOdds(comp.odds, g.home.abbr, g.away.abbr);   /* ESPN's embedded line (DraftKings): backs up the odds feature */
     if (eo) g.eo = eo;
     /* books don't price games against non-Division-I opponents: drop them (unless a line exists anyway) */
     if (lg.d1 && !eo && !(home.team && home.team.conferenceId && away.team && away.team.conferenceId)) continue;
@@ -1115,24 +1115,59 @@ function memoGet(k) {
 function load(lgKey, ds) { return memoGet(keyFor(lgKey, ds)); }
 /* ...while the code that WRITES (sync, odds) always reads what is really stored, never the render memo */
 function loadFresh(lgKey, ds) { return store.get(keyFor(lgKey, ds)); }
-/* keep captured halftime snapshots, and flag games whose start time moved */
-function mergeGames(prev, games) {
+/* Saved odds are "the HOME team's points", so they only mean something relative to the team ESPN calls home -- and ESPN
+   re-labels that on neutral-site games. A game that comes back with its two teams on the opposite sides has its saved
+   lines turned around with it (mirrorOdds, from save), otherwise the card names the wrong favourite until the next odds
+   refresh and that refresh records a fake "move" (build 45: Moves showed KENT -8 -> WYO -8, "16 pts"). */
+function sidesSwapped(p, g) {
+  return !!(p.home && p.away && g.home && g.away && p.home.abbr !== p.away.abbr && p.home.abbr === g.away.abbr && p.away.abbr === g.home.abbr);
+}
+/* keep captured halftime snapshots, and flag games whose start time moved; swapped collects the ids whose sides swapped */
+function mergeGames(prev, games, swapped) {
   if (!prev || !prev.games) return games;
   var byId = {}, i;
   for (i = 0; i < prev.games.length; i++) { byId[prev.games[i].id] = prev.games[i]; }
   for (i = 0; i < games.length; i++) {
-    var g = games[i], p = byId[g.id];
+    var g = games[i], p = byId[g.id], sw;
     if (!p) continue;
+    sw = sidesSwapped(p, g);
+    if (sw && swapped) swapped.push(g.id);
     if (p.ht && p.ht.fin && !(g.ht && g.ht.fin)) g.ht = p.ht;
-    if (p.eo && !g.eo) g.eo = p.eo;
+    if (p.eo && !g.eo) g.eo = sw ? { b: p.eo.b, k: p.eo.k, full: flipPart(p.eo.full) } : p.eo;
     if (p.moved) g.moved = true;
     /* a TBD kickoff finally getting a time isn't a reschedule */
     else if (p.start && g.start && p.start !== g.start && g.state === 'pre' && !p.tbd) g.moved = true;
   }
   return games;
 }
+/* one game's saved odds seen from the other side: every book's full / halftime line and the previous line behind a move */
+function mirrorEntry(e) {
+  var out = { b: {} }, k, w, b, c;
+  for (k in e.b) {
+    b = e.b[k]; c = {};
+    for (w in b) { c[w] = b[w]; }
+    if (b.full) c.full = flipPart(b.full);
+    if (b.seg) c.seg = flipPart(b.seg);
+    if (b.pv) {
+      c.pv = {};
+      for (w in b.pv) { c.pv[w] = { p: flipPart(b.pv[w].p), at: b.pv[w].at }; }
+    }
+    out.b[k] = c;
+  }
+  return out;
+}
+function mirrorOdds(lgKey, ds, ids) {
+  var day = loadOddsFresh(lgKey, ds), i, n = 0;
+  if (!day || !day.games) return;
+  for (i = 0; i < ids.length; i++) {
+    if (day.games[ids[i]]) { day.games[ids[i]] = mirrorEntry(normEntry(day.games[ids[i]])); n++; }
+  }
+  if (n) store.set(okeyFor(lgKey, ds), day);
+}
 function save(lgKey, ds, games) {
-  store.set(keyFor(lgKey, ds), { t: Date.now(), games: mergeGames(loadFresh(lgKey, ds), games) });
+  var swapped = [];
+  store.set(keyFor(lgKey, ds), { t: Date.now(), games: mergeGames(loadFresh(lgKey, ds), games, swapped) });
+  if (swapped.length) mirrorOdds(lgKey, ds, swapped);
   prune();
 }
 /* Walks every saved key, so it runs at most once a minute -- a sync used to call it after each of its ~50 saves. */
@@ -1630,10 +1665,22 @@ function priceNum(v) {
   return isNaN(n) ? null : n;
 }
 function closeOf(x) { return x ? (x.close || x.current || x.open || null) : null; }
-function parseEspnOdds(list) {
+/* ESPN keys pointSpread.home / moneyline.home to the SPORTSBOOK's home team, which on a neutral-site game can be the
+   other team from ESPN's own "home" (2026-11-24 DUQ@HPU: details "HPU -10.5", pointSpread.home "+10.5", home money
+   line +410; Pinnacle agreed with the text). The details text names the favourite, so it says which team the numbers
+   belong to. Returns the HOME spread that text implies, or null when it names nobody (EVEN / PK / OFF). */
+function detailsHomeLine(details, homeAbbr, awayAbbr) {
+  var m = /^\s*(\S+)\s+([+-]?\d+(?:\.\d+)?)\s*$/.exec(String(details == null ? '' : details).replace('−', '-')), ab, ln;
+  if (!m) return null;
+  ab = m[1].toUpperCase(); ln = Number(m[2]);
+  if (ab === String(homeAbbr).toUpperCase()) return ln;
+  if (ab === String(awayAbbr).toUpperCase()) return -ln;
+  return null;
+}
+function parseEspnOdds(list, homeAbbr, awayAbbr) {
   var o = list && list[0];
   if (!o) return null;
-  var out = { sp: null, tot: null, ml: null }, a, b, ps = o.pointSpread, tt = o.total, mm = o.moneyline;
+  var out = { sp: null, tot: null, ml: null }, a, b, ps = o.pointSpread, tt = o.total, mm = o.moneyline, hd;
   if (ps) {
     a = closeOf(ps.home); b = closeOf(ps.away);
     if (a && b && lineNum(a.line) != null) out.sp = { h: lineNum(a.line), hp: priceNum(a.odds), ap: priceNum(b.odds) };
@@ -1645,6 +1692,11 @@ function parseEspnOdds(list) {
   if (mm) {
     a = closeOf(mm.home); b = closeOf(mm.away);
     if (a && b && priceNum(a.odds) != null && priceNum(b.odds) != null) out.ml = { h: priceNum(a.odds), a: priceNum(b.odds) };
+  }
+  if (out.sp) {
+    hd = detailsHomeLine(o.details, homeAbbr, awayAbbr);
+    /* the text and the "home" fields point at opposite teams (same size of line): the fields are the mirrored ones */
+    if (hd != null && hd * out.sp.h < 0 && Math.abs(Math.abs(hd) - Math.abs(out.sp.h)) <= 2) out = flipPart(out);
   }
   if (!out.sp && !out.tot && !out.ml) return null;
   var nm = (o.provider && (o.provider.displayName || o.provider.name)) || 'ESPN';
@@ -2493,9 +2545,23 @@ function oldestTime(boards) {
 function cents(a) { return a > 0 ? a - 100 : a + 100; }           /* American price on a straight scale: -100 and +100 are the same price */
 function dCents(x, y) { return (x == null || y == null) ? 0 : Math.abs(cents(y) - cents(x)); }
 function r2(n) { return Math.round(n * 100) / 100; }
+/* A line that was saved from the wrong team's side (home / away re-labelled; older builds) and then refreshed reads as a
+   huge move though nothing moved: "NYK -8 -> BOC -8" = 16 pts. That can only be a mirror image -- the same size on the
+   other side (within a point) with the prices carried over to the other team -- which a real favourite switch never is. */
+function isMirror(from, to) {
+  if (from.sp && to.sp && Math.abs(to.sp.h - from.sp.h) >= 4) {
+    return Math.abs(to.sp.h + from.sp.h) <= 1 && Math.max(dCents(from.sp.hp, to.sp.ap), dCents(from.sp.ap, to.sp.hp)) <= 40;
+  }
+  if (from.ml && to.ml) {
+    return Math.max(dCents(from.ml.h, to.ml.h), dCents(from.ml.a, to.ml.a)) >= 80 &&
+      Math.max(dCents(from.ml.h, to.ml.a), dCents(from.ml.a, to.ml.h)) <= 20;
+  }
+  return false;
+}
 /* what moved between two versions of one part { sp, tot, ml } */
 function partMoves(from, to) {
   var out = [], pts, pc;
+  if (isMirror(from, to)) from = flipPart(from);
   if (from.sp && to.sp) {
     pts = r2(Math.abs(to.sp.h - from.sp.h));
     pc = Math.max(dCents(from.sp.hp, to.sp.hp), dCents(from.sp.ap, to.sp.ap));
