@@ -111,6 +111,33 @@ Implementation: `viewKey()` / `stashScroll()` / `setGames()` in `index.html`;
 `setTrack()` stashes *before* the tracking layout hides the date bar and tabs.
 Test: `tools/e2e/scroll-memory.js`.
 
+## Neutral-site games keep their order
+
+A game on a neutral court has no real home team, and ESPN's home/away labels for
+it are arbitrary: the schedule lists one team as home, and once scores start coming
+in ESPN's live feed can call the *other* team home. On a card (away on top, home
+below) that made a team jump from the bottom row to the top the moment the game
+started. ESPN only ever returns the *current* labels (the scoreboard, event summary,
+boxscore and team schedule all agree), so the app remembers the order it saved for
+each game: a game ESPN flags `neutralSite` keeps that order for good, and its
+scores, line scores, winner, halftime, the 🏈 and ESPN's embedded line all stay with
+the right team.
+
+A game that is **not** neutral is different on purpose: if ESPN swaps its teams
+there, the schedule had the host wrong, so ESPN's correction is followed (and the
+saved odds are turned around with it, as before). The flag is read at the moment of
+the swap, so a game ESPN corrects from neutral to a real home game follows ESPN too.
+
+Limits: the order is whatever the app first saved. A game it only sees *after* ESPN
+has already re-labelled it (nothing recorded the schedule's order), and games saved
+flipped by an older build, show ESPN's labels. A sportsbook's home/away can't stand
+in for the lost order: Pinnacle disagrees with ESPN's *pre-game* labels on about one
+neutral game in five.
+
+Implementation: `parseScoreboard` stores `ns`; `mergeGames` + `flipSides` in
+`index.html`. Test: `tools/e2e/neutral-keep.js` (39 checks, incl. football possession
+and the two functions called directly).
+
 ## Low-end phones (Android 10 Go, MT8168, 2 GB)
 
 The target hardware is a slow quad Cortex-A53 with 2 GB and, possibly, an old
