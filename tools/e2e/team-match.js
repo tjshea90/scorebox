@@ -23,12 +23,12 @@ const startOf = gi => { const d = new Date(TODAY); d.setHours(23, 5 + gi * 5, 0,
 
 /* key, ESPN path, Pinnacle id, The Odds API / PropLine sport key, line-score shape, does the card show a money line */
 const LG = {
-  mlb: { slug: 'baseball/mlb', pin: 246, sk: 'baseball_mlb', kind: 'innings', ml: true, pro: true, cut: 5, cutOf: 'F5' },
-  nba: { slug: 'basketball/nba', pin: 487, sk: 'basketball_nba', kind: 'quarters', ml: false, pro: true, cut: 2 },
-  wnba: { slug: 'basketball/wnba', pin: 578, sk: 'basketball_wnba', kind: 'quarters', ml: false, pro: true, cut: 2 },
-  nfl: { slug: 'football/nfl', pin: 889, sk: 'americanfootball_nfl', kind: 'quarters', ml: false, pro: true, cut: 2, football: true },
-  cfb: { slug: 'football/college-football', pin: 880, sk: 'americanfootball_ncaaf', kind: 'quarters', ml: false, cut: 2, football: true },
-  cbb: { slug: 'basketball/mens-college-basketball', pin: 493, sk: 'basketball_ncaab', kind: 'halves', ml: false, cut: 1 },
+  mlb: { slug: 'baseball/mlb', pin: 246, sk: 'baseball_mlb', kind: 'innings', ml: true, pro: true, cut: 5, seg: 'f5', oaSeg: '1st_5_innings', segLab: 'F5' },
+  nba: { slug: 'basketball/nba', pin: 487, sk: 'basketball_nba', kind: 'quarters', ml: false, pro: true, cut: 2, seg: 'h1', oaSeg: 'h1', segLab: '1H' },
+  wnba: { slug: 'basketball/wnba', pin: 578, sk: 'basketball_wnba', kind: 'quarters', ml: false, pro: true, cut: 2, seg: 'h1', oaSeg: 'h1', segLab: '1H' },
+  nfl: { slug: 'football/nfl', pin: 889, sk: 'americanfootball_nfl', kind: 'quarters', ml: false, pro: true, cut: 2, football: true, seg: 'h1', oaSeg: 'h1', segLab: '1H' },
+  cfb: { slug: 'football/college-football', pin: 880, sk: 'americanfootball_ncaaf', kind: 'quarters', ml: false, cut: 2, football: true, seg: 'h1', oaSeg: 'h1', segLab: '1H' },
+  cbb: { slug: 'basketball/mens-college-basketball', pin: 493, sk: 'basketball_ncaab', kind: 'halves', ml: false, cut: 1, seg: 'h1', oaSeg: 'h1', segLab: '1H' },
   nhl: { slug: 'hockey/nhl', pin: 1456, sk: 'icehockey_nhl', kind: 'periods', ml: true, pro: true, cut: 0 }   /* NHL shows full-game scores only */
 };
 const KEYS = Object.keys(LG);
@@ -50,6 +50,10 @@ function truth(lk, gi) {
   T.A.spPrice = -(110 + gi); T.B.spPrice = -(101 + 2 * gi);
   T.A.ml = T.fav === 'A' ? -(130 + 15 * gi) : 110 + 12 * gi; T.B.ml = T.fav === 'B' ? -(130 + 15 * gi) : 110 + 12 * gi;
   T.total = { line: BASE_TOTAL[lk] + gi * 0.5, over: -(108 + gi), under: -(120 - gi) };
+  /* the half / first-5 line (not hockey): its favourite is the OTHER team, so a half line mixed up with the full game shows */
+  const segSp = lk === 'mlb' ? 0.5 : 0.5 + gi * 0.5;
+  T.seg = { fav: other(T.fav), total: { line: Math.floor(BASE_TOTAL[lk] / 2) + 0.5 + gi, over: -(114 + gi), under: -(130 - gi) } };
+  T.seg.A = { spread: T.seg.fav === 'A' ? -segSp : segSp, spPrice: -(106 + gi) }; T.seg.B = { spread: -T.seg.A.spread, spPrice: -(103 + gi) };
   /* scores: live game (4) after the first segment, final game (5) complete; every team's numbers are its own */
   [['A', 3], ['B', 7]].forEach(p => {
     const k = p[0], tm = T[k];
@@ -125,22 +129,35 @@ function pinnacle(lk, url) {
     if (/\/matchups/.test(url)) {
       out.push({ id, type: 'matchup', startTime: startOf(gi), participants: [{ alignment: 'home', name: H.loc }, { alignment: 'away', name: W.loc }] });
     } else {
-      const mk = (type, prices) => ({ matchupId: id, type, period: 0, isAlternate: false, status: 'open', prices });
+      const mk = (type, prices, period) => ({ matchupId: id, type, period: period || 0, isAlternate: false, status: 'open', prices });
       out.push(mk('spread', [{ designation: 'home', points: H.spread, price: H.spPrice }, { designation: 'away', points: W.spread, price: W.spPrice }]));
       out.push(mk('total', [{ designation: 'over', points: T.total.line, price: T.total.over }, { designation: 'under', points: T.total.line, price: T.total.under }]));
       out.push(mk('moneyline', [{ designation: 'home', price: H.ml }, { designation: 'away', price: W.ml }]));
+      if (LG[lk].cut) {                              /* first half / first 5 innings */
+        const S = T.seg, SH = S[home], SW = S[other(home)];
+        out.push(mk('spread', [{ designation: 'home', points: SH.spread, price: SH.spPrice }, { designation: 'away', points: SW.spread, price: SW.spPrice }], 1));
+        out.push(mk('total', [{ designation: 'over', points: S.total.line, price: S.total.over }, { designation: 'under', points: S.total.line, price: S.total.under }], 1));
+      }
     }
   });
   return out;
 }
 /* ----- PropLine / The Odds API (the-odds-api's shape): one game each, one book each ----- */
-function eaBody(lk, gi, bookKey, title) {
-  const T = truth(lk, gi), home = sourceHome(), H = T[home], W = T[other(home)];
-  return [{ id: 'ea-' + lk + gi, home_team: H.full, away_team: W.full, commence_time: startOf(gi),
-    bookmakers: [{ key: bookKey, title, markets: [
+function eaEvent(lk, gi, bookKey, title, part) {      /* part: 'full' | 'pl' (PropLine's period answer) | 'oa' (The Odds API's per-game half answer) */
+  const T = truth(lk, gi), home = sourceHome(), H = T[home], W = T[other(home)], L = LG[lk], S = T.seg;
+  let markets;
+  if (part === 'full') {
+    markets = [
       { key: 'spreads', outcomes: [{ name: H.full, price: H.spPrice, point: H.spread }, { name: W.full, price: W.spPrice, point: W.spread }] },
       { key: 'totals', outcomes: [{ name: 'Over', price: T.total.over, point: T.total.line }, { name: 'Under', price: T.total.under, point: T.total.line }] },
-      { key: 'h2h', outcomes: [{ name: H.full, price: H.ml }, { name: W.full, price: W.ml }] }] }] }];
+      { key: 'h2h', outcomes: [{ name: H.full, price: H.ml }, { name: W.full, price: W.ml }] }];
+  } else {
+    const sp = [{ name: H.full, price: S[home].spPrice, point: S[home].spread }, { name: W.full, price: S[other(home)].spPrice, point: S[other(home)].spread }];
+    const tt = [{ name: 'Over', price: S.total.over, point: S.total.line }, { name: 'Under', price: S.total.under, point: S.total.line }];
+    markets = part === 'pl' ? [{ key: 'spreads', period: L.seg, outcomes: sp }, { key: 'totals', period: L.seg, outcomes: tt }]
+      : [{ key: 'spreads_' + L.oaSeg, outcomes: sp }, { key: 'totals_' + L.oaSeg, outcomes: tt }];
+  }
+  return { id: 'ea-' + lk + gi, home_team: H.full, away_team: W.full, commence_time: startOf(gi), bookmakers: [{ key: bookKey, title, markets }] };
 }
 let fails = 0;
 function check(n, ok, x) { console.log((ok ? 'PASS ' : 'FAIL ') + n + (!ok && x !== undefined ? '  -> ' + JSON.stringify(x) : '')); if (!ok) fails++; }
@@ -174,13 +191,13 @@ function check(n, ok, x) { console.log((ok ? 'PASS ' : 'FAIL ') + n + (!ok && x 
     if (url.startsWith('https://api.prop-line.com/')) {
       m = /sports\/([a-z_]+)\/odds/.exec(url);
       const lk = m && KEYS.filter(k => LG[k].sk === m[1])[0];
-      return ok(lk && !/period=/.test(url) ? eaBody(lk, 2, 'fanduel', 'FanDuel') : []);
+      return ok(!lk ? [] : (/period=/.test(url) ? (LG[lk].cut ? [eaEvent(lk, 2, 'fanduel', 'FanDuel', 'pl')] : []) : [eaEvent(lk, 2, 'fanduel', 'FanDuel', 'full')]));
     }
     if (url.startsWith('https://api.the-odds-api.com/')) {
-      m = /sports\/([a-z_]+)\/odds/.exec(url);
+      m = /sports\/([a-z_]+)\//.exec(url);
       const lk = m && KEYS.filter(k => LG[k].sk === m[1])[0];
-      if (/\/events\//.test(url)) return ok({});
-      return ok(lk ? eaBody(lk, 3, 'betmgm', 'BetMGM') : []);
+      if (/\/events\//.test(url)) return ok(lk && LG[lk].cut ? eaEvent(lk, 3, 'betmgm', 'BetMGM', 'oa') : {});
+      return ok(lk ? [eaEvent(lk, 3, 'betmgm', 'BetMGM', 'full')] : []);
     }
     return route.fulfill({ status: 404, headers: cors, body: '{}' });
   });
@@ -201,17 +218,21 @@ function check(n, ok, x) { console.log((ok ? 'PASS ' : 'FAIL ') + n + (!ok && x 
     if (!card) return null;
     const t = e => (e ? e.textContent.replace(/\s+/g, ' ').trim() : null);
     const rows = Array.prototype.map.call(card.querySelectorAll('.trow'), r => {
-      const odds = {};
-      ['sp', 'tt', 'ml'].forEach(k => { const b = r.querySelector('.ob2.' + k); odds[k] = b ? { top: t(b.querySelector('.obt')), price: t(b.querySelector('.obp')) } : null; });
-      return { abbr: t(r.querySelector('.tile')), score: t(r.querySelector('.score')), seg: t(r.querySelector('.f5col')), loser: r.classList.contains('loser'), ball: !!r.querySelector('.fbicon'), odds };
+      const odds = {}, odds2 = {};
+      ['sp', 'tt', 'ml'].forEach(k => {
+        const all = r.querySelectorAll('.ob2.' + k), rd = b => (b ? { top: t(b.querySelector('.obt')), price: t(b.querySelector('.obp')) } : null);
+        odds[k] = rd(all[0]); odds2[k] = rd(all[1]);          /* the full-game board, then the half / first-5 board */
+      });
+      return { abbr: t(r.querySelector('.tile')), score: t(r.querySelector('.score')), seg: t(r.querySelector('.f5col')), loser: r.classList.contains('loser'), ball: !!r.querySelector('.fbicon'), odds, odds2 };
     });
     const ls = Array.prototype.map.call(card.querySelectorAll('table.ls tr'), tr => Array.prototype.map.call(tr.children, c => c.textContent.trim()));
-    return { rows, ls, mini: t(card.querySelector('.odds.mini')) };
+    return { rows, ls, mini: Array.prototype.map.call(card.querySelectorAll('.odds.mini .om'), o => t(o)) };
   }, id);
 
   await page.goto('http://localhost:8765/index.html?v=99');
   await settle(800);
   await page.click('#oddsBtn'); await settle(400);
+  await page.click('#optBtn'); await page.click('#perSeg button[data-v="oSeg"]'); await page.click('#optBtn'); await settle(300);   /* halftime / first-5 odds on too: two boards per row */
 
   async function verifyAll(V) {
     const bad = {};
@@ -249,16 +270,36 @@ function check(n, ok, x) { console.log((ok ? 'PASS ' : 'FAIL ') + n + (!ok && x 
             const tt = ri === 0 ? ['O ' + T.total.line, fmtPrice(T.total.over)] : ['U ' + T.total.line, fmtPrice(T.total.under)];
             if (!o.tt || o.tt.top !== tt[0] || o.tt.price !== tt[1]) problems.push(where + 'total ' + JSON.stringify(o.tt) + ' expected ' + tt.join(' '));
             if (L.ml && (!o.ml || o.ml.price !== fmtPrice(tm.ml))) problems.push(where + 'money line ' + JSON.stringify(o.ml) + ' expected ' + fmtPrice(tm.ml));
+            if (L.cut && gi >= 1 && gi <= 3) {       /* the half / first-5 board: the opposite favourite, its own prices */
+              const o2 = r.odds2, S = T.seg;
+              if (!o2.sp || o2.sp.top !== fmtPts(S[k].spread) || o2.sp.price !== fmtPrice(S[k].spPrice)) problems.push(where + L.segLab + ' spread ' + JSON.stringify(o2.sp) + ' expected ' + fmtPts(S[k].spread) + ' ' + fmtPrice(S[k].spPrice));
+              const t2 = ri === 0 ? ['O ' + S.total.line, fmtPrice(S.total.over)] : ['U ' + S.total.line, fmtPrice(S.total.under)];
+              if (!o2.tt || o2.tt.top !== t2[0] || o2.tt.price !== t2[1]) problems.push(where + L.segLab + ' total ' + JSON.stringify(o2.tt) + ' expected ' + t2.join(' '));
+            }
           }
         });
-        if (st !== 'pre') {                      /* the saved pre-game line, read back with the finished / live scores */
-          const fav = T[T.fav], mini = c.mini || '', sa = sum(T.A[st === 'in' ? 'live' : 'fin']), sb = sum(T.B[st === 'in' ? 'live' : 'fin']);
-          if (mini.indexOf(fav.abbr + ' ' + fmtPts(-Math.abs(fav.spread))) < 0) problems.push(tag + ': saved spread should name ' + fav.abbr + ' ' + fmtPts(-Math.abs(fav.spread)) + ' -> ' + mini.slice(0, 120));
-          if (L.ml && mini.indexOf('ML ' + fav.abbr + ' ' + fmtPrice(fav.ml)) < 0) problems.push(tag + ': saved money line should be ' + fav.abbr + ' ' + fmtPrice(fav.ml) + ' -> ' + mini.slice(0, 120));
+        if (st !== 'pre') {                      /* the saved pre-game lines, read back with the live / final scores */
+          const lines = c.mini || [], fullLine = lines.filter(x => x.indexOf('Full') === 0)[0] || '', segLine = L.cut ? (lines.filter(x => x.indexOf(L.segLab) === 0)[0] || '') : '';
+          const ls = x => (st === 'in' ? x.live : x.fin), sa = sum(ls(T.A)), sb = sum(ls(T.B));
+          const covered = (sA, sB, spA, spB) => { const dA = sA + spA - sB, dB = sB + spB - sA; return dA > 0 ? 'A' : (dB > 0 ? 'B' : null); };
+          const total = (n, line) => (n > line ? 'Over ' : 'Under ') + n;
+          const fav = T[T.fav];
+          if (fullLine.indexOf(fav.abbr + ' ' + fmtPts(-Math.abs(fav.spread))) < 0) problems.push(tag + ': saved spread should name ' + fav.abbr + ' ' + fmtPts(-Math.abs(fav.spread)) + ' -> ' + fullLine.slice(0, 120));
+          if (L.ml && fullLine.indexOf('ML ' + fav.abbr + ' ' + fmtPrice(fav.ml)) < 0) problems.push(tag + ': saved money line should be ' + fav.abbr + ' ' + fmtPrice(fav.ml) + ' -> ' + fullLine.slice(0, 120));
           if (st === 'post') {
-            const dA = sa + T.A.spread - sb, dB = sb + T.B.spread - sa, cover = dA > 0 ? 'A' : (dB > 0 ? 'B' : null);
-            const want = cover ? T[cover].abbr + ' covered' : 'Spread push';
-            if (mini.indexOf(want) < 0) problems.push(tag + ': expected "' + want + '" -> ' + mini.slice(0, 160));
+            const cv = covered(sa, sb, T.A.spread, T.B.spread), want = cv ? T[cv].abbr + ' covered' : 'Spread push';
+            if (fullLine.indexOf(want) < 0) problems.push(tag + ': expected "' + want + '" -> ' + fullLine.slice(0, 160));
+            if (fullLine.indexOf(total(sa + sb, T.total.line)) < 0) problems.push(tag + ': expected "' + total(sa + sb, T.total.line) + '" -> ' + fullLine.slice(0, 160));
+          }
+          if (L.cut && gi !== 0) {
+            const S = T.seg, sf = T[S.fav], pa = sum(ls(T.A).slice(0, L.cut)), pb = sum(ls(T.B).slice(0, L.cut));
+            if (!segLine) problems.push(tag + ': no ' + L.segLab + ' line');
+            else {
+              if (segLine.indexOf(sf.abbr + ' ' + fmtPts(-Math.abs(S[S.fav].spread))) < 0) problems.push(tag + ': ' + L.segLab + ' spread should name ' + sf.abbr + ' ' + fmtPts(-Math.abs(S[S.fav].spread)) + ' -> ' + segLine.slice(0, 120));
+              const cv2 = covered(pa, pb, S.A.spread, S.B.spread), want2 = cv2 ? T[cv2].abbr + ' covered' : 'Spread push';
+              if (segLine.indexOf(want2) < 0) problems.push(tag + ': ' + L.segLab + ' expected "' + want2 + '" -> ' + segLine.slice(0, 160));
+              if (segLine.indexOf(total(pa + pb, S.total.line)) < 0) problems.push(tag + ': ' + L.segLab + ' expected "' + total(pa + pb, S.total.line) + '" -> ' + segLine.slice(0, 160));
+            }
           }
         }
       }

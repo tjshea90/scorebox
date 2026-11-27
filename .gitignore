@@ -19,3 +19,6 @@ app/release/
 
 # perf harness fixtures (re-download: python3 tools/perf/fetch-fixtures.py)
 tools/perf/fixtures/
+
+# real-data audit: Pinnacle dumps (re-download: python3 tools/audit/fetch-pinnacle.py)
+tools/audit/pinnacle/

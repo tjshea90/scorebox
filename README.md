@@ -41,6 +41,7 @@ keystore/scorebox-release.jks               release signing key (see Releases)
 .github/workflows/build-release.yml         CI: builds + publishes the APK
 tools/e2e/                                  Chromium end-to-end suite (bash tools/e2e/run.sh)
 tools/perf/                                 real-data profiling under CPU throttling
+tools/audit/                                real ESPN + Pinnacle data through the whole app: every row vs the raw payloads
 tools/test_syntax.sh, tools/es5-check.js    fast guards: syntax + ES5-only
 ```
 
@@ -137,6 +138,45 @@ neutral game in five.
 Implementation: `parseScoreboard` stores `ns`; `mergeGames` + `flipSides` in
 `index.html`. Test: `tools/e2e/neutral-keep.js` (39 checks, incl. football possession
 and the two functions called directly).
+
+## Every team keeps its own score and its own odds
+
+Whatever ESPN or a sportsbook calls "home", each team row shows **that team's** score,
+line score, winner mark, 🏈 and betting lines (full game and halftime / first 5).
+
+- **Scores** live on the team itself (score, line score, winner), so they cannot be
+  attached to the other row; the derived halftime / first-5 sums and the ball are turned
+  with the teams (`flipSides`).
+- **Odds** are stored as "the home team's numbers", so every saved line is *stamped with
+  the team it was written for* (`ho`) and turned to match the card when it is read
+  (`orientEntry`). That also covers a download that started before ESPN re-labelled a
+  game and landed after it (Live sync saves the schedule while a download is still
+  running); without the stamp a finished game could keep a closing line next to the wrong
+  team. Lines saved by older builds have no stamp and are shown as saved.
+- **ESPN's own embedded line** is keyed to the provider's home team, which can be the
+  team ESPN calls away. It is oriented by the favourite ESPN names, the favourite flags,
+  the sign of the spread, the cheaper money line and the team ids it attaches to each
+  side (`oddsHomeSide`). Hockey and baseball quote a money-line price in `details`, so
+  the text alone is not enough there.
+
+Guards: `tools/e2e/team-match.js` (all seven leagues x six games x five home/away
+scenarios plus the late-download race; ESPN's line, Pinnacle, PropLine, The Odds API;
+every number belongs to one team) and `tools/e2e/line-anchor.js`.
+
+Check it against real data at any time (about 5 minutes):
+
+```bash
+python3 tools/perf/fetch-fixtures.py     # real ESPN scoreboards -> tools/perf/fixtures
+python3 tools/audit/fetch-pinnacle.py    # real Pinnacle lines   -> tools/audit/pinnacle
+node tools/audit/real-render.js          # exit 1 and the first problems if any row is off
+```
+
+It renders the real payloads through the real app, as ESPN labels them and with every
+game's home/away swapped, and compares every team row with the raw payloads (scores,
+line scores, loser mark, spread, price, money line, total). On 2026-11-27 data: 473 cards,
+946 team rows, 256 scores, 246 line scores, 292 ESPN-line rows and 234 Pinnacle rows, no
+mismatch in either orientation. The same audit run on the previous release reported 96
+wrong-team rows (NHL games whose lines were attached to the other team).
 
 ## Low-end phones (Android 10 Go, MT8168, 2 GB)
 
