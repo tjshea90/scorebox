@@ -1067,7 +1067,7 @@ function parseScoreboard(json, lg) {
     /* ESPN's neutral-site flag: there is no real home team then, so its home/away labels are arbitrary and can change
        between the schedule and the live feed (mergeGames keeps the order the schedule had) */
     if (comp.neutralSite === true) g.ns = 1;
-    var eo = parseEspnOdds(comp.odds, g.home.abbr, g.away.abbr);   /* ESPN's embedded line (DraftKings): backs up the odds feature */
+    var eo = parseEspnOdds(comp.odds, g.home.abbr, g.away.abbr, home.team && home.team.id != null ? String(home.team.id) : null, away.team && away.team.id != null ? String(away.team.id) : null);   /* ESPN's embedded line (DraftKings): backs up the odds feature */
     if (eo) g.eo = eo;
     /* books don't price games against non-Division-I opponents: drop them (unless a line exists anyway) */
     if (lg.d1 && !eo && !(home.team && home.team.conferenceId && away.team && away.team.conferenceId)) continue;
@@ -1161,34 +1161,38 @@ function mergeGames(prev, games, swapped) {
   }
   return games;
 }
-/* one game's saved odds seen from the other side: every book's full / halftime line and the previous line behind a move */
-function mirrorEntry(e) {
+/* one game's saved odds seen from the other side -- only the lines that do not say which team they are for (older builds);
+   a line stamped with its team (ho) is turned around when it is read, so it is left alone here. Every line turned here is
+   stamped with the team ESPN now calls home. Covers each book's full / halftime line and the previous line behind a move. */
+function mirrorEntry(e, home) {
   var out = { b: {} }, k, w, b, c;
+  function turn(p) { var q = flipPart(p); q.ho = home; return q; }
   for (k in e.b) {
     b = e.b[k]; c = {};
     for (w in b) { c[w] = b[w]; }
-    if (b.full) c.full = flipPart(b.full);
-    if (b.seg) c.seg = flipPart(b.seg);
+    if (b.full && !b.full.ho) c.full = turn(b.full);
+    if (b.seg && !b.seg.ho) c.seg = turn(b.seg);
     if (b.pv) {
       c.pv = {};
-      for (w in b.pv) { c.pv[w] = { p: flipPart(b.pv[w].p), at: b.pv[w].at }; }
+      for (w in b.pv) { c.pv[w] = (b.pv[w].p && !b.pv[w].p.ho) ? { p: turn(b.pv[w].p), at: b.pv[w].at } : b.pv[w]; }
     }
     out.b[k] = c;
   }
   return out;
 }
-function mirrorOdds(lgKey, ds, ids) {
-  var day = loadOddsFresh(lgKey, ds), i, n = 0;
+function mirrorOdds(lgKey, ds, ids, games) {
+  var day = loadOddsFresh(lgKey, ds), i, n = 0, home = {};
   if (!day || !day.games) return;
+  for (i = 0; i < games.length; i++) { home[games[i].id] = games[i].home.abbr; }
   for (i = 0; i < ids.length; i++) {
-    if (day.games[ids[i]]) { day.games[ids[i]] = mirrorEntry(normEntry(day.games[ids[i]])); n++; }
+    if (day.games[ids[i]] && home[ids[i]]) { day.games[ids[i]] = mirrorEntry(normEntry(day.games[ids[i]]), home[ids[i]]); n++; }
   }
   if (n) store.set(okeyFor(lgKey, ds), day);
 }
 function save(lgKey, ds, games) {
-  var swapped = [];
-  store.set(keyFor(lgKey, ds), { t: Date.now(), games: mergeGames(loadFresh(lgKey, ds), games, swapped) });
-  if (swapped.length) mirrorOdds(lgKey, ds, swapped);
+  var swapped = [], merged = mergeGames(loadFresh(lgKey, ds), games, swapped);
+  store.set(keyFor(lgKey, ds), { t: Date.now(), games: merged });
+  if (swapped.length) mirrorOdds(lgKey, ds, swapped, merged);
   prune();
 }
 /* Walks every saved key, so it runs at most once a minute -- a sync used to call it after each of its ~50 saves. */
@@ -1688,20 +1692,46 @@ function priceNum(v) {
 function closeOf(x) { return x ? (x.close || x.current || x.open || null) : null; }
 /* ESPN keys pointSpread.home / moneyline.home to the SPORTSBOOK's home team, which on a neutral-site game can be the
    other team from ESPN's own "home" (2026-11-24 DUQ@HPU: details "HPU -10.5", pointSpread.home "+10.5", home money
-   line +410; Pinnacle agreed with the text). The details text names the favourite, so it says which team the numbers
-   belong to. Returns the HOME spread that text implies, or null when it names nobody (EVEN / PK / OFF). */
-function detailsHomeLine(details, homeAbbr, awayAbbr) {
-  var m = /^\s*(\S+)\s+([+-]?\d+(?:\.\d+)?)\s*$/.exec(String(details == null ? '' : details).replace('−', '-')), ab, ln;
+   line +410; Pinnacle agreed with the text). Which of ESPN's two teams do those "home" numbers belong to? Several fields
+   say, and they are read together, strongest first:
+   1. details names the favourite and the size of his line ("HPU -10.5"): when that size matches the spread, the sign of the
+      spread's "home" side says whether the numbers are the favourite's or the underdog's;
+   2. otherwise the favourite named in details -- hockey and baseball quote his money-line PRICE there ("TB -142") -- plus a
+      vote on whether the "home" side is that favourite: homeTeamOdds.favorite, the sign of pointSpread.home, the cheaper
+      money line;
+   3. otherwise the team ids ESPN attaches to the two sides (homeTeamOdds.team.id / awayTeamOdds.team.id).
+   Returns 'home' / 'away' (the ESPN team the "home" numbers belong to), or null when nothing says (EVEN / PK / OFF, no ids). */
+function detailsFavourite(details, homeAbbr, awayAbbr) {
+  var m = /^\s*(\S+)\s+([+-]?\d+(?:\.\d+)?)\s*$/.exec(String(details == null ? '' : details).replace('−', '-')), ab;
   if (!m) return null;
-  ab = m[1].toUpperCase(); ln = Number(m[2]);
-  if (ab === String(homeAbbr).toUpperCase()) return ln;
-  if (ab === String(awayAbbr).toUpperCase()) return -ln;
+  ab = m[1].toUpperCase();
+  if (ab === String(homeAbbr).toUpperCase()) return { side: 'home', n: Math.abs(Number(m[2])) };
+  if (ab === String(awayAbbr).toUpperCase()) return { side: 'away', n: Math.abs(Number(m[2])) };
   return null;
 }
-function parseEspnOdds(list, homeAbbr, awayAbbr) {
+function oddsHomeSide(o, out, homeAbbr, awayAbbr, homeId, awayId) {
+  var f = detailsFavourite(o.details, homeAbbr, awayAbbr), hto = o.homeTeamOdds, ato = o.awayTeamOdds, yes = 0, no = 0, homeIsFav = null, x, y;
+  if (f) {
+    if (out.sp && out.sp.h !== 0 && Math.abs(f.n - Math.abs(out.sp.h)) <= 2) homeIsFav = out.sp.h < 0;
+    else {
+      if (hto && ato && typeof hto.favorite === 'boolean' && typeof ato.favorite === 'boolean' && hto.favorite !== ato.favorite) { if (hto.favorite) yes++; else no++; }
+      if (out.sp && out.sp.h !== 0) { if (out.sp.h < 0) yes++; else no++; }
+      if (out.ml && out.ml.h !== out.ml.a) { if (out.ml.h < out.ml.a) yes++; else no++; }
+      if (yes !== no) homeIsFav = yes > no;
+    }
+    if (homeIsFav !== null) return homeIsFav === (f.side === 'home') ? 'home' : 'away';
+  }
+  if (hto && ato && hto.team && ato.team && homeId != null && awayId != null) {
+    x = String(hto.team.id); y = String(ato.team.id);
+    if (x === homeId && y === awayId) return 'home';
+    if (x === awayId && y === homeId) return 'away';
+  }
+  return null;
+}
+function parseEspnOdds(list, homeAbbr, awayAbbr, homeId, awayId) {
   var o = list && list[0];
   if (!o) return null;
-  var out = { sp: null, tot: null, ml: null }, a, b, ps = o.pointSpread, tt = o.total, mm = o.moneyline, hd;
+  var out = { sp: null, tot: null, ml: null }, a, b, ps = o.pointSpread, tt = o.total, mm = o.moneyline;
   if (ps) {
     a = closeOf(ps.home); b = closeOf(ps.away);
     if (a && b && lineNum(a.line) != null) out.sp = { h: lineNum(a.line), hp: priceNum(a.odds), ap: priceNum(b.odds) };
@@ -1714,13 +1744,9 @@ function parseEspnOdds(list, homeAbbr, awayAbbr) {
     a = closeOf(mm.home); b = closeOf(mm.away);
     if (a && b && priceNum(a.odds) != null && priceNum(b.odds) != null) out.ml = { h: priceNum(a.odds), a: priceNum(b.odds) };
   }
-  if (out.sp) {
-    hd = detailsHomeLine(o.details, homeAbbr, awayAbbr);
-    /* the text and the "home" fields point at opposite teams (same size of line): the fields are the mirrored ones */
-    if (hd != null && hd * out.sp.h < 0 && Math.abs(Math.abs(hd) - Math.abs(out.sp.h)) <= 2) out = flipPart(out);
-  }
   if (!out.sp && !out.tot && !out.ml) return null;
-  var nm = (o.provider && (o.provider.displayName || o.provider.name)) || 'ESPN';
+  if (oddsHomeSide(o, out, homeAbbr, awayAbbr, homeId, awayId) === 'away') out = flipPart(out);   /* the "home" numbers are the other team's */
+  var nm =(o.provider && (o.provider.displayName || o.provider.name)) || 'ESPN';
   return { b: nm, k: bookKey(nm), full: out };
 }
 
@@ -1765,6 +1791,56 @@ function flipPart(p) {
     tot: p.tot,
     ml: p.ml ? { h: p.ml.a, a: p.ml.h } : null
   };
+}
+/* ----- every saved line knows which team it is for -----
+   A stored part { sp, tot, ml } is written from ONE team's side ("the HOME team's points"), so by itself it only means
+   something next to the team that was home when it was written -- and "home" is a label ESPN can change, while a download
+   that started before the change can still land after it. applyBooks therefore stamps each part it writes with ho = the
+   abbreviation of the team its "home" numbers belong to, and every reader turns a part whose ho is the card's AWAY team around
+   (partFor), so a line can never sit next to the wrong team: not after ESPN re-labels, not for a late download. A part with no
+   ho (written by an older build) is taken as it is. */
+function shallow(o) { var c = {}, k; for (k in o) { c[k] = o[k]; } return c; }
+function stampHome(p, g) { return p ? { sp: p.sp, tot: p.tot, ml: p.ml, ho: g.home.abbr } : p; }
+function wrongSide(p, g) { return !!(p && p.ho && p.ho !== g.home.abbr && p.ho === g.away.abbr); }
+function partFor(p, g) {
+  if (!wrongSide(p, g)) return p;
+  var q = flipPart(p);
+  q.ho = g.home.abbr;
+  return q;
+}
+/* a part seen from the same side as another one: two versions of one line, to tell a real move from a re-label */
+function sameSideAs(p, ref) {
+  if (!p || !ref || !p.ho || !ref.ho || p.ho === ref.ho) return p;
+  var q = flipPart(p);
+  q.ho = ref.ho;
+  return q;
+}
+function orientBook(b, g) {
+  var c = null, w;
+  if (wrongSide(b.full, g)) { c = shallow(b); c.full = partFor(b.full, g); }
+  if (wrongSide(b.seg, g)) { c = c || shallow(b); c.seg = partFor(b.seg, g); }
+  if (b.pv) {
+    for (w in b.pv) {
+      if (b.pv[w] && wrongSide(b.pv[w].p, g)) {
+        c = c || shallow(b);
+        if (c.pv === b.pv) c.pv = shallow(b.pv);
+        c.pv[w] = { p: partFor(b.pv[w].p, g), at: b.pv[w].at };
+      }
+    }
+  }
+  return c || b;
+}
+/* one game's saved books, every line turned to the side the card shows (the same object back when nothing needs turning) */
+function orientEntry(e, g) {
+  var out = null, k, nb;
+  for (k in e.b) {
+    nb = orientBook(e.b[k], g);
+    if (nb !== e.b[k]) {
+      if (!out) out = { b: shallow(e.b) };
+      out.b[k] = nb;
+    }
+  }
+  return out || e;
 }
 /* a half / first-5 total can never reach the game's: if it does, the period is not what we think */
 function sanePart(full, seg) {
@@ -2016,7 +2092,7 @@ function markMoves(snap, now) {
         b = e.b[bk]; bb = be.b[bk];
         if (!bb) continue;
         for (pi = 0; pi < parts.length; pi++) {
-          if (b[parts[pi]] && bb[parts[pi]] && partSig(b[parts[pi]]) !== partSig(bb[parts[pi]])) {
+          if (b[parts[pi]] && bb[parts[pi]] && partSig(b[parts[pi]]) !== partSig(sameSideAs(bb[parts[pi]], b[parts[pi]]))) {
             (b.pv || (b.pv = {}))[parts[pi]] = { p: bb[parts[pi]], at: now };
             after.games[gid] = e;
             dirty = true;
@@ -2053,8 +2129,8 @@ function applyBooks(lg, ds, games, perGame, srcId, stamp, sbT) {
         if (!data[k].full && !data[k].seg) continue;
         cur = e.b[k] || (e.b[k] = {});
         cur.n = data[k].n; cur.s = srcId; delete cur.late;
-        if (data[k].full) { cur.full = data[k].full; cur.ft = stamp; }
-        if (data[k].seg) { cur.seg = data[k].seg; cur.st = stamp; }
+        if (data[k].full) { cur.full = stampHome(data[k].full, g); cur.ft = stamp; }
+        if (data[k].seg) { cur.seg = stampHome(data[k].seg, g); cur.st = stamp; }
       }
     }
     eo = g.eo;
@@ -2063,10 +2139,10 @@ function applyBooks(lg, ds, games, perGame, srcId, stamp, sbT) {
       if (g.state === 'pre') {
         if (!cur || !cur.full || (cur.ft || 0) <= (sbT || 0)) {
           cur = e.b[eo.k] || (e.b[eo.k] = {});
-          cur.n = eo.b; cur.s = 'espn'; cur.full = { sp: eo.full.sp, tot: eo.full.tot, ml: lg.noMl ? null : eo.full.ml }; cur.ft = sbT || stamp || Date.now();
+          cur.n = eo.b; cur.s = 'espn'; cur.full = { sp: eo.full.sp, tot: eo.full.tot, ml: lg.noMl ? null : eo.full.ml, ho: g.home.abbr }; cur.ft = sbT || stamp || Date.now();
         }
       } else if (!cur) {
-        e.b[eo.k] = { n: eo.b, s: 'espn', full: { sp: eo.full.sp, tot: eo.full.tot, ml: lg.noMl ? null : eo.full.ml }, ft: sbT || stamp || Date.now(), late: g.state === 'in' ? 1 : 0 };
+        e.b[eo.k] = { n: eo.b, s: 'espn', full: { sp: eo.full.sp, tot: eo.full.tot, ml: lg.noMl ? null : eo.full.ml, ho: g.home.abbr }, ft: sbT || stamp || Date.now(), late: g.state === 'in' ? 1 : 0 };
       }
     }
     keys = [];
@@ -2473,7 +2549,7 @@ function partsName(W, lg) {
 function oddsParts(g, lg, e, isDay) {
   var res = { top: '', head: '', away: '', home: '', below: '' };
   if (!state.odds || (!state.oFull && !state.oSeg) || g.flag === 'Postponed' || g.flag === 'Canceled') return res;
-  var list = e ? visibleBooks(normEntry(e)) : [];
+  var list = e ? visibleBooks(orientEntry(normEntry(e), g)) : [];
   if (!list.length) {
     if (g.state === 'pre' && isDay) res.below = '<div class="odds none">Odds not posted yet</div>';
     return res;
@@ -2624,7 +2700,7 @@ function movesForDay(ds) {
     for (gid in od.games) {
       g = byId[gid];
       if (!g || g.flag === 'Postponed' || g.flag === 'Canceled') continue;
-      list = visibleBooks(normEntry(od.games[gid]));
+      list = visibleBooks(orientEntry(normEntry(od.games[gid]), g));
       rows = []; at = 0; st = 0;
       for (w = 0; w < W.length; w++) {
         picks = movesBooks(list, W[w]);

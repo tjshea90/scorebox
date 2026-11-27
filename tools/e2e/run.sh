@@ -15,6 +15,11 @@
 #                 a mirrored line already saved is shown as the real drift; ESPN's embedded line is oriented by its `details` text.
 # neutral-keep    a neutral-site game keeps the home/away ORDER its schedule had when ESPN re-labels it at game time (scores, winner,
 #                 halftime, the ball and ESPN's embedded line follow the team); not neutral -> ESPN's correction is followed.
+# team-match      all 7 leagues x 6 games x 5 home/away scenarios (+ an odds download that lands after a re-label): every team row shows
+#                 ITS OWN score, line score, winner, ball and odds, from ESPN's embedded line, Pinnacle, PropLine and The Odds API.
+# line-anchor     which team a SAVED line is for: ESPN's embedded line oriented by favourite text / flags / spread sign / money line / team ids
+#                 (price-style details, pick'em, ids only, conflicts); stamped lines turned when read, never mutated; lines saved by the
+#                 previous build (no stamp) keep working across re-labels back and forth.
 # live-render     start times = platform formatter; only changed cards swapped; Live sync skips leagues that cannot change.
 # storage-quota   a full localStorage evicts the oldest past days / keeps data for the session instead of silently losing it.
 # scroll-memory   every tab / day / Moves / tracked game starts at the top and, when you come back, is where you left it.
@@ -27,7 +32,7 @@ SRV=$!
 trap 'kill $SRV 2>/dev/null || true' EXIT
 sleep 1
 rc=0
-for t in network-rules moves-variants moves-sources moves-orient neutral-keep scroll-memory live-render storage-quota bad-body; do
+for t in network-rules moves-variants moves-sources moves-orient neutral-keep team-match line-anchor scroll-memory live-render storage-quota bad-body; do
   echo "=== $t"
   node "$D/tools/e2e/$t.js" || rc=1
 done

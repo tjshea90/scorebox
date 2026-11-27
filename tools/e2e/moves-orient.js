@@ -64,6 +64,8 @@ function espnOdds(details, homeLine, awayLine, homeMl, awayMl) {
   const okey = 'sbx2:o-nba:' + ymd(TODAY);
   const stored = () => page.evaluate(k => { const r = localStorage.getItem(k); return r ? JSON.parse(r) : null; }, okey);
   const pinBook = async () => { const o = await stored(); return o && o.games.g1 && o.games.g1.b.pinnacle; };
+  /* a saved line says which team its "home" numbers belong to (ho); this is how it reads from `home`'s side (what the card shows) */
+  const seen = (p, home) => (p && p.ho && p.ho !== home && p.sp) ? { sp: { h: -p.sp.h, hp: p.sp.ap, ap: p.sp.hp } } : p;
   const text = async sel => (await page.textContent(sel)).replace(/\s+/g, ' ');
   async function moves() { await page.click('#tabs button.mvtab'); await settle(600); return text('#games'); }
   async function toggleRefresh() { await page.click('#optBtn'); await settle(300); await page.click('#orfBtn'); await settle(300); await page.click('#optBtn'); await settle(300); }
@@ -86,7 +88,7 @@ function espnOdds(details, homeLine, awayLine, homeMl, awayMl) {
   await sync();
   check('A3 Odds refresh off: no Pinnacle call', pinCalls === before, [before, pinCalls]);
   pin = await pinBook();
-  check('A4 saved line followed the TEAM: now BOC +8 (NYK -8), NYK price still -114', pin && pin.full.sp.h === 8 && pin.full.sp.hp === -102 && pin.full.sp.ap === -114, pin && pin.full);
+  check('A4 saved line followed the TEAM: read from BOC (the new home) it is BOC +8 (NYK -8), NYK price still -114', (v => v && v.sp.h === 8 && v.sp.hp === -102 && v.sp.ap === -114)(seen(pin && pin.full, 'BOC')), pin && pin.full);
   t = await text('#games');
   check('A5 card board STILL NYK -8 / BOC +8 (not BOC -8)', /NYKKnicks−8/.test(t) && /BOCCeltics\+8/.test(t) && !/BOCCeltics−8/.test(t), t.slice(0, 300));
 
@@ -104,7 +106,7 @@ function espnOdds(details, homeLine, awayLine, homeMl, awayMl) {
   await sync();
   pin = await pinBook();
   check('B1 saved: NYK -8 at -117 / BOC +8 at +101', pin && pin.full.sp.h === -8 && pin.full.sp.hp === -117 && pin.full.sp.ap === 101, pin && pin.full);
-  check('B2 previous line kept for NYK -8 at -114 (not a mirrored copy)', pin && pin.pv && pin.pv.full && pin.pv.full.p.sp.h === -8 && pin.pv.full.p.sp.hp === -114, pin && pin.pv);
+  check('B2 previous line kept for NYK -8 at -114 (read from NYK, the home team now; not a mirrored copy)', (v => v && v.sp.h === -8 && v.sp.hp === -114)(seen(pin && pin.pv && pin.pv.full && pin.pv.full.p, 'NYK')), pin && pin.pv);
   t = await moves();
   console.log('--- ' + t.slice(0, 420));
   check('B3 Moves lists the 1 pt total drop', /144\.5\s*→\s*143\.5/.test(t) && /1 pt/.test(t));
