@@ -1,7 +1,7 @@
 # CHECKPOINT 55 — every team keeps its own score and its own odds: read me first
 
 **Branch:** `claude/beautiful-edison-thivek` (session branch; `main` is the source of truth — see CLAUDE.md) · **builds on:** `2e548a0` (= main when this task started: ckpt 54, release v3.0.47 = neutral-site games keep their schedule order).
-**State:** fix written, guarded, validated — `bash tools/test_syntax.sh && bash tools/e2e/run.sh` → 11 scripts, **224+ PASS, 0 FAIL**; real-data audit clean. Code checkpoint `7a1f724` is on the session branch.
+**State:** fix written, guarded, validated — `bash tools/test_syntax.sh && bash tools/e2e/run.sh` → 11 scripts, **225 PASS, 0 FAIL**; real-data audit clean. Code checkpoint `7a1f724` is on the session branch.
 **Remaining:** land on `main` → wait for "Build and release APK" → send the user the `.apk` link. (If `git log --oneline origin/main` already shows the "ckpt 55" commit, only the APK link is left.)
 
 ## The request (user, 2026-11-27, second message)
@@ -18,6 +18,7 @@
 1. `oddsHomeSide` / `detailsFavourite` / `parseEspnOdds(list, homeAbbr, awayAbbr, homeId, awayId)`: which ESPN team do the embedded line's "home" numbers belong to — (1) favourite in `details` + sign of the spread when the text's number matches it; else (2) that favourite + a vote of `homeTeamOdds.favorite` / sign of `pointSpread.home` / cheaper money line; else (3) `homeTeamOdds.team.id` / `awayTeamOdds.team.id` vs the competitors' ids; else labels. Favourite fields beat the ids when they disagree.
 2. **Stamped lines**: `applyBooks` stamps every part it writes with `ho` (abbr of the team its "home" numbers belong to, `stampHome`); `orientEntry` / `orientBook` / `partFor` turn a part whose `ho` is the card's AWAY team, in `oddsParts` and `movesForDay` (stored data never mutated; same object back when nothing needs turning). `markMoves` uses `sameSideAs` so a re-label is not recorded as a move. Parts WITHOUT `ho` (saved by builds <= 47) are read as they are; `mirrorOdds`/`mirrorEntry` (observed non-neutral swap) now turn + stamp only UNSTAMPED parts.
 3. `tools/e2e/moves-orient.js` A4 / B2 now read the stored line through its stamp (`seen`) instead of expecting the old physical rewrite; every behavioural check in it is unchanged.
+4. `partMoves` applies the `isMirror` guess only when a line has no stamp: on stamped lines a real same-size favourite switch (NYK -4.5 -> BOC -4.5) was hidden as "no move" (new check moves-orient C4; mutation-checked).
 
 ## Guards added
 - `tools/e2e/team-match.js` — 7 leagues x 6 games x 5 label scenarios + the late-download race; ESPN's embedded line, Pinnacle, PropLine, The Odds API; full-game AND halftime / first-5 boards; live / final result lines; oracle keyed by TEAM. Mutation-checked (removing a half-line flip fails V1-V4 + R).

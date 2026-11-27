@@ -1746,7 +1746,7 @@ function parseEspnOdds(list, homeAbbr, awayAbbr, homeId, awayId) {
   }
   if (!out.sp && !out.tot && !out.ml) return null;
   if (oddsHomeSide(o, out, homeAbbr, awayAbbr, homeId, awayId) === 'away') out = flipPart(out);   /* the "home" numbers are the other team's */
-  var nm =(o.provider && (o.provider.displayName || o.provider.name)) || 'ESPN';
+  var nm = (o.provider && (o.provider.displayName || o.provider.name)) || 'ESPN';
   return { b: nm, k: bookKey(nm), full: out };
 }
 
@@ -2644,7 +2644,8 @@ function dCents(x, y) { return (x == null || y == null) ? 0 : Math.abs(cents(y) 
 function r2(n) { return Math.round(n * 100) / 100; }
 /* A line that was saved from the wrong team's side (home / away re-labelled; older builds) and then refreshed reads as a
    huge move though nothing moved: "NYK -8 -> BOC -8" = 16 pts. That can only be a mirror image -- the same size on the
-   other side (within a point) with the prices carried over to the other team -- which a real favourite switch never is. */
+   other side (within a point) with the prices carried over to the other team -- which a real favourite switch never is.
+   Only for older lines that do not say which team they are for: a stamped line (ho) is exact and needs no guess. */
 function isMirror(from, to) {
   if (from.sp && to.sp && Math.abs(to.sp.h - from.sp.h) >= 4) {
     return Math.abs(to.sp.h + from.sp.h) <= 1 && Math.max(dCents(from.sp.hp, to.sp.ap), dCents(from.sp.ap, to.sp.hp)) <= 40;
@@ -2658,7 +2659,7 @@ function isMirror(from, to) {
 /* what moved between two versions of one part { sp, tot, ml } */
 function partMoves(from, to) {
   var out = [], pts, pc;
-  if (isMirror(from, to)) from = flipPart(from);
+  if (!(from.ho && to.ho) && isMirror(from, to)) from = flipPart(from);   /* lines that name their team (ho) are exact: only older, unstamped ones are guessed at */
   if (from.sp && to.sp) {
     pts = r2(Math.abs(to.sp.h - from.sp.h));
     pc = Math.max(dCents(from.sp.hp, to.sp.hp), dCents(from.sp.ap, to.sp.ap));

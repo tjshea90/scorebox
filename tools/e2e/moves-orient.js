@@ -135,6 +135,17 @@ function espnOdds(details, homeLine, awayLine, homeMl, awayMl) {
   await page.click('#tabs button.mvtab'); await settle(600);
   t = await text('#games');
   check('C3 a real favourite switch (BOC -3 -> NYK -8) is still shown as 11 pts', /BOC −3\s*→\s*NYK −8/.test(t) && /11 pts/.test(t), t.slice(0, 400));
+  /* lines that say which team they are for need no guessing: a same-size switch of favourite (NYK -4.5 -> BOC -4.5, say a star ruled out) is a REAL 9 point move */
+  await page.evaluate(([k, now]) => {
+    const o = JSON.parse(localStorage.getItem(k)), b = o.games.g1.b.pinnacle;
+    b.full = { sp: { h: 4.5, hp: -110, ap: -110 }, tot: { p: 143.5, o: -111, u: -109 }, ml: null, ho: 'NYK' };
+    b.pv = { full: { at: now - 3600000, p: { sp: { h: -4.5, hp: -110, ap: -110 }, tot: { p: 143.5, o: -111, u: -109 }, ml: null, ho: 'NYK' } } };
+    localStorage.setItem(k, JSON.stringify(o));
+  }, [okey, Date.now()]);
+  await page.reload(); await settle(900);
+  await page.click('#tabs button.mvtab'); await settle(600);
+  t = await text('#games');
+  check('C4 stamped lines: a same-size favourite switch (NYK -4.5 -> BOC -4.5) is shown as the 9 pt move it is, not guessed to be a mirrored save', /NYK −4\.5\s*→\s*BOC −4\.5/.test(t) && /9 pts/.test(t), t.slice(0, 400));
 
   /* ===== D. ESPN's embedded DraftKings line: details names the favourite ===== */
   world.pinOn = false; world.flip = false;
