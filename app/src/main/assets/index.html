@@ -1064,6 +1064,9 @@ function parseScoreboard(json, lg) {
       away: parseTeam(away),
       home: parseTeam(home)
     };
+    /* ESPN's neutral-site flag: there is no real home team then, so its home/away labels are arbitrary and can change
+       between the schedule and the live feed (mergeGames keeps the order the schedule had) */
+    if (comp.neutralSite === true) g.ns = 1;
     var eo = parseEspnOdds(comp.odds, g.home.abbr, g.away.abbr);   /* ESPN's embedded line (DraftKings): backs up the odds feature */
     if (eo) g.eo = eo;
     /* books don't price games against non-Division-I opponents: drop them (unless a line exists anyway) */
@@ -1115,14 +1118,31 @@ function memoGet(k) {
 function load(lgKey, ds) { return memoGet(keyFor(lgKey, ds)); }
 /* ...while the code that WRITES (sync, odds) always reads what is really stored, never the render memo */
 function loadFresh(lgKey, ds) { return store.get(keyFor(lgKey, ds)); }
-/* Saved odds are "the HOME team's points", so they only mean something relative to the team ESPN calls home -- and ESPN
-   re-labels that on neutral-site games. A game that comes back with its two teams on the opposite sides has its saved
-   lines turned around with it (mirrorOdds, from save), otherwise the card names the wrong favourite until the next odds
-   refresh and that refresh records a fake "move" (build 45: Moves showed KENT -8 -> WYO -8, "16 pts"). */
+/* ESPN re-labels home / away on neutral-site games: the schedule says one team is home, the live feed (once scores come
+   in) says the other, and every ESPN endpoint only ever returns the CURRENT labels -- the original is not recoverable, so
+   the app remembers it. On a neutral court there is no real home team, so a game ESPN flags as neutral KEEPS the order
+   the schedule had (the team on the bottom row stays there when the scores arrive). A game that is NOT neutral and comes
+   back with its two teams on the opposite sides is a genuine correction (the schedule had the host wrong): ESPN is followed,
+   and the saved odds -- "the HOME team's points" -- are turned around with it (mirrorOdds, from save), otherwise the card
+   names the wrong favourite until the next odds refresh and that refresh records a fake "move" (build 45: Moves showed
+   KENT -8 -> WYO -8, "16 pts"). */
 function sidesSwapped(p, g) {
   return !!(p.home && p.away && g.home && g.away && p.home.abbr !== p.away.abbr && p.home.abbr === g.away.abbr && p.away.abbr === g.home.abbr);
 }
-/* keep captured halftime snapshots, and flag games whose start time moved; swapped collects the ids whose sides swapped */
+/* a halftime / first-5 sum seen from the other side */
+function flipCut(c) { return c ? { a: c.h, h: c.a, fin: c.fin } : c; }
+/* the same game with its two teams on each other's side: everything the page stores as "home" / "away" turns around --
+   the teams (scores, line scores, winner travel with them), halftime / first-5 sums, who has the ball, ESPN's embedded line */
+function flipSides(g) {
+  var t = g.home;
+  g.home = g.away; g.away = t;
+  if (g.ht) g.ht = flipCut(g.ht);
+  if (g.f5) g.f5 = flipCut(g.f5);
+  if (g.fb && g.fb.possess) g.fb.possess = g.fb.possess === 'home' ? 'away' : 'home';
+  if (g.eo && g.eo.full) g.eo = { b: g.eo.b, k: g.eo.k, full: flipPart(g.eo.full) };
+}
+/* keep captured halftime snapshots, and flag games whose start time moved; swapped collects the ids whose sides swapped
+   (a neutral-site game is turned back to the saved order first, so it is never "swapped") */
 function mergeGames(prev, games, swapped) {
   if (!prev || !prev.games) return games;
   var byId = {}, i;
@@ -1131,8 +1151,9 @@ function mergeGames(prev, games, swapped) {
     var g = games[i], p = byId[g.id], sw;
     if (!p) continue;
     sw = sidesSwapped(p, g);
+    if (sw && g.ns) { flipSides(g); sw = false; }       /* neutral site: the saved order stands; the saved odds still match it */
     if (sw && swapped) swapped.push(g.id);
-    if (p.ht && p.ht.fin && !(g.ht && g.ht.fin)) g.ht = p.ht;
+    if (p.ht && p.ht.fin && !(g.ht && g.ht.fin)) g.ht = sw ? flipCut(p.ht) : p.ht;
     if (p.eo && !g.eo) g.eo = sw ? { b: p.eo.b, k: p.eo.k, full: flipPart(p.eo.full) } : p.eo;
     if (p.moved) g.moved = true;
     /* a TBD kickoff finally getting a time isn't a reschedule */
